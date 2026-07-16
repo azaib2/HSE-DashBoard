@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Complete HSE Dashboard (Editable)</title>
+<style>
+  :root{
+    --bg:#eef1f0; --card:#ffffff; --text:#111827; --sub:#6b7280; --border:#e5e7eb;
+    --green:#1b8a2f; --green-dark:#0d4d18; --sidebar:#0a1a12;
+    --amber:#f5b400; --orange:#f2711c; --red:#e02424; --blue:#1f4fd8; --purple:#6f2bd6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--sidebar);color:var(--text);}
+  .shell{display:flex;max-width:1450px;margin:0 auto;min-height:100vh;background:var(--sidebar);}
+
+  .sidebar{width:225px;flex-shrink:0;background:var(--sidebar);color:#cfe8d4;padding:22px 14px 18px;display:flex;flex-direction:column;}
+  .brand{text-align:center;margin-bottom:18px;}
+  .brand-badge{width:56px;height:56px;margin:0 auto 8px;border:2px solid #4caf50;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#0f2418;}
+  .brand-badge svg{width:30px;height:30px;}
+  .brand-name{font-size:11px;letter-spacing:.06em;color:#9fd6a8;font-weight:600;}
+  nav{flex:1;overflow-y:auto;}
+  nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:3px;border-radius:8px;color:#c7dacb;text-decoration:none;font-size:13px;}
+  nav a.active{background:linear-gradient(90deg,#1b8a2f,#2fb548);color:#fff;font-weight:600;}
+  nav a .ic{width:16px;text-align:center;font-size:14px;}
+  .sidebar-footer{display:flex;align-items:center;gap:10px;padding-top:14px;border-top:1px solid #1c3324;font-size:12.5px;}
+  .avatar{width:32px;height:32px;border-radius:50%;background:#274a33;display:flex;align-items:center;justify-content:center;color:#cfe8d4;font-weight:700;font-size:13px;}
+  .sidebar-footer .name{font-weight:600;color:#e7f4ea;}
+  .sidebar-footer .role{color:#8fb896;font-size:11px;}
+
+  .main{flex:1;background:var(--bg);padding:18px 20px 26px;border-radius:14px 0 0 14px;}
+
+  .header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:14px;}
+  .header h1{margin:0;font-size:24px;font-weight:800;}
+  .header h1 .accent{color:var(--green);}
+  .header .tagline{margin:2px 0 0;font-size:12px;font-weight:700;letter-spacing:.03em;color:#374151;}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .pillbtn{background:#e2f3e4;color:var(--green-dark);border:1px solid #bfe4c4;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+  .pillbtn.dark{background:linear-gradient(90deg,#0d4d18,#1b8a2f);color:#fff;border:none;}
+  .pillbtn:hover{filter:brightness(1.05);}
+  .pillbtn:disabled{opacity:.45;cursor:not-allowed;filter:none;}
+  #saveNote{font-size:11.5px;color:var(--green-dark);font-weight:700;opacity:0;transition:opacity .3s;}
+
+  /* Vertical tabs in the left sidebar */
+  .tabs-left{flex:1;overflow-y:auto;margin-top:6px;}
+  .tab-pill{
+    display:flex;align-items:center;gap:0;
+    padding:9px 12px;margin-bottom:3px;border-radius:8px;
+    color:#c7dacb;font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .tab-pill.active{background:linear-gradient(90deg,#1b8a2f,#2fb548);color:#fff;}
+  .tab-pill .lbl[contenteditable="true"]{outline:none;}
+  .tab-pill .lbl:hover, .tab-pill .lbl:focus{outline:1px dashed rgba(255,255,255,.6);border-radius:3px;}
+  .tab-pill:not(.active) .lbl:hover, .tab-pill:not(.active) .lbl:focus{outline:1px dashed #557a5f;}
+
+  /* Lock / security control, sits in the left sidebar */
+  .lock-badge{
+    display:flex;flex-direction:column;gap:6px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;
+    padding:10px 11px;font-size:12px;font-weight:700;margin:10px 0 4px;
+  }
+  .lock-badge .state{display:flex;align-items:center;gap:6px;}
+  .lock-badge.locked .state{color:#f4c78e;}
+  .lock-badge.unlocked .state{color:#9fe6ac;}
+  .lock-badge .row{display:flex;gap:6px;flex-wrap:wrap;}
+  .lock-badge button{
+    border:none;border-radius:7px;padding:6px 9px;font-size:11px;font-weight:700;cursor:pointer;
+  }
+  .lock-badge .btn-unlock{background:linear-gradient(90deg,#2fb548,#7fe08f);color:#062a0d;width:100%;}
+  .lock-badge .btn-lock{background:rgba(255,255,255,.14);color:#e7f4ea;}
+  .lock-badge .btn-pw{background:none;color:#9fd6a8;text-decoration:underline;padding:6px 2px;}
+
+  [contenteditable="true"]{cursor:text;border-radius:4px;}
+  [contenteditable="true"]:hover{outline:1px dashed #9ca3af;}
+  [contenteditable="true"]:focus{outline:1px dashed var(--green);background:rgba(27,138,47,.06);}
+  button:disabled{opacity:.3;cursor:not-allowed;}
+  input:disabled, select:disabled, textarea:disabled{opacity:.7;cursor:default;background:#f7f7f8;}
+
+  .filters{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px;margin-bottom:14px;}
+  .field{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:6px 12px;}
+  .field label{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:1px;}
+  .editListBtn{border:none;background:none;color:var(--blue);cursor:pointer;font-size:11px;padding:0 0 0 6px;}
+  .editListBtn:disabled{color:#c4c9d1;cursor:not-allowed;}
+  .field select, .field input{border:none;background:transparent;font-size:13px;font-weight:600;width:100%;padding:2px 0;color:var(--text);}
+  .field select:focus, .field input:focus{outline:none;}
+  .refresh-btn{background:linear-gradient(90deg,#0d4d18,#1b8a2f);color:#fff;border:none;border-radius:9px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer;}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px;}
+  .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 10px;}
+  .kpi-top{display:flex;align-items:flex-start;gap:8px;}
+  .kpi-icon{font-size:18px;line-height:1.3;}
+  .kpi-value-in{font-size:17px;font-weight:800;line-height:1;width:70px;border:none;background:transparent;padding:0;color:var(--text);}
+  .kpi-value-in:focus{outline:1px solid var(--green);border-radius:4px;}
+  .kpi-suffix{font-size:12px;font-weight:700;color:var(--sub);}
+  .auto-tag{font-size:9px;font-weight:700;color:#7c9885;background:#eef4ef;border-radius:5px;padding:1px 5px;margin-left:3px;white-space:nowrap;}
+  .computed-kpi{cursor:default;background:transparent !important;color:var(--text) !important;opacity:1 !important;}
+  .validation-banner{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:9px;padding:10px 14px;font-size:12px;margin-bottom:12px;}
+  .validation-banner .vb-title{font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+  .validation-banner ul{margin:0;padding-left:18px;}
+  .validation-banner li{margin-bottom:2px;}
+  .snap-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f2f2f3;font-size:12px;gap:10px;}
+  .snap-row:last-child{border-bottom:none;}
+  .snap-empty{font-size:11.5px;color:var(--sub);}
+  .kpi-label{font-size:10px;color:var(--sub);margin-top:2px;}
+  .kpi-delta-row{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:11px;font-weight:700;}
+  .kpi-delta-row select{border:none;background:transparent;font-size:11px;font-weight:700;padding:0;}
+  .kpi-delta-row input{width:36px;border:none;border-bottom:1px dashed #c7cbd1;background:transparent;font-size:11px;font-weight:700;padding:0;}
+  .kpi-delta-row .grey{color:var(--sub);font-weight:400;font-size:10.5px;}
+  .up-color{color:var(--green);} .down-color{color:var(--red);}
+
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 15px 15px;}
+  .panel h3{margin:0 0 8px;font-size:12.5px;font-weight:800;letter-spacing:.02em;display:flex;justify-content:space-between;align-items:center;}
+  .panel h3 .edit-toggle{font-size:10.5px;color:var(--blue);font-weight:600;cursor:pointer;background:none;border:none;}
+
+  .legend{list-style:none;margin:8px 0 0;padding:0;}
+  .legend li{display:flex;align-items:center;justify-content:space-between;font-size:11px;padding:3px 0;gap:6px;}
+  .legend .name{display:flex;align-items:center;gap:6px;color:#374151;flex:1;}
+  .legend .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .legend input[type=number]{width:48px;border:1px solid var(--border);border-radius:5px;font-size:11px;padding:2px 4px;}
+  .legend .pct{font-weight:700;width:34px;text-align:right;}
+
+  .donut-wrap{display:flex;align-items:center;gap:12px;}
+  .donut{width:100px;height:100px;border-radius:50%;position:relative;flex-shrink:0;}
+  .donut::after{content:'';position:absolute;inset:20px;background:#fff;border-radius:50%;}
+  .donut-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:2;}
+  .donut-num .big{font-size:17px;font-weight:800;}
+  .donut-num .small{font-size:9px;color:var(--sub);}
+
+  .bar-row{display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:7px;}
+  .bar-row .lbl{width:78px;flex-shrink:0;color:#374151;}
+  .bar-track{flex:1;background:#f1f2f4;border-radius:3px;height:13px;position:relative;overflow:hidden;}
+  .bar-fill{background:#1f4fd8;height:100%;border-radius:3px;}
+  .bar-row input[type=number]{width:42px;border:1px solid var(--border);border-radius:5px;font-size:11px;padding:2px 4px;text-align:right;}
+
+  details.editor{margin-top:8px;}
+  details.editor summary{font-size:10.5px;color:var(--blue);cursor:pointer;font-weight:600;}
+  .month-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:8px;}
+  .month-grid .mcell{display:flex;flex-direction:column;font-size:9px;color:var(--sub);}
+  .month-grid input{width:100%;font-size:10.5px;padding:2px;border:1px solid var(--border);border-radius:4px;}
+  .series-label{font-size:10px;font-weight:700;margin-top:6px;color:#374151;}
+
+  .risk-table{width:100%;border-collapse:collapse;font-size:10.5px;text-align:center;}
+  .risk-table th{color:var(--sub);font-weight:600;font-size:9.5px;padding:3px;}
+  .risk-table td.likelihood{text-align:left;color:#374151;font-weight:600;font-size:10px;padding:3px;}
+  .risk-cell input{width:34px;height:26px;text-align:center;color:#fff;font-weight:700;border:none;border-radius:4px;font-size:11px;}
+
+  .env-list{list-style:none;margin:0;padding:0;}
+  .env-list li{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f2f2f3;font-size:11.5px;gap:6px;}
+  .env-list li:last-child{border-bottom:none;}
+  .env-list .left{display:flex;align-items:center;gap:6px;color:#374151;flex:1;}
+  .env-list input.valin{width:66px;border:1px solid var(--border);border-radius:5px;font-size:11px;padding:2px 4px;text-align:right;}
+  .env-list select.dirsel{font-size:10.5px;border:none;background:transparent;font-weight:700;}
+  .env-list input.deltain{width:34px;border:1px solid var(--border);border-radius:5px;font-size:10.5px;padding:2px 3px;text-align:right;}
+
+  .banner{display:flex;background:linear-gradient(90deg,#0d4d18,#1b8a2f 60%,#0d4d18);border-radius:10px;padding:10px 6px;color:#fff;flex-wrap:wrap;}
+  .banner .item{flex:1;display:flex;align-items:center;gap:7px;padding:4px 10px;border-right:1px solid rgba(255,255,255,.25);min-width:140px;}
+  .banner .item:last-child{border-right:none;}
+  .banner .item .ic{font-size:15px;}
+  .banner .item .t1{font-size:10.5px;font-weight:800;}
+  .banner .item .t2{font-size:9.5px;color:#d6ecd9;}
+  .footer-row{display:flex;justify-content:flex-end;margin-top:8px;font-size:11.5px;color:#4b5563;font-weight:600;}
+
+  @media (max-width:1150px){
+    .kpi-grid{grid-template-columns:repeat(3,1fr);}
+    .grid3{grid-template-columns:1fr;}
+    .filters{grid-template-columns:repeat(2,1fr);}
+    .shell{flex-direction:column;}
+    .sidebar{width:100%;}
+  }
+
+  /* ---------- PRINT / SAVE AS PDF ---------- */
+  @media print{
+    * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    body{background:#fff;}
+    .sidebar, .toolbar, .lock-badge, #validationWarnings,
+    .editListBtn, .delRowBtn, details.editor, .pillbtn, .refresh-btn,
+    #importFile{ display:none !important; }
+    .shell{display:block;}
+    .main{padding:0;border-radius:0;background:#fff;}
+    .panel, .kpi-card{box-shadow:none !important;border:1px solid #ddd;break-inside:avoid;}
+    .grid3{break-inside:avoid;}
+    .kpi-grid, .grid3{page-break-inside:avoid;}
+    input, select, textarea{
+      border:none !important;background:transparent !important;color:#111 !important;
+      opacity:1 !important;-webkit-appearance:none;appearance:none;
+    }
+    [contenteditable]{outline:none !important;}
+    .filters{border:none;}
+    .banner{-webkit-print-color-adjust:exact;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-badge">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V5l7-3z" stroke="#4caf50" stroke-width="1.4"/><path d="M8 9c1 2 2 3 4 3s3-1 4-3" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </div>
+      <div class="brand-name" id="brandNameText" contenteditable="true" spellcheck="false">HSE&nbsp;&nbsp;MANAGEMENT SYSTEM</div>
+    </div>
+    <div id="lockBadge" class="lock-badge"></div>
+    <nav class="tabs-left" id="tabsSidebar"></nav>
+    <div class="sidebar-footer">
+      <div class="avatar">H</div>
+      <div>
+        <div class="name" id="userName" contenteditable="true" spellcheck="false">HSE Manager</div>
+        <div class="role" id="userRole" contenteditable="true" spellcheck="false">Safety First, Always</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+
+  <div id="page-dashboard">
+
+    <div class="header">
+      <div>
+        <h1 id="titleText" contenteditable="true" spellcheck="false">COMPLETE <span class="accent">HSE</span> DASHBOARD</h1>
+        <p class="tagline"><span id="taglineText" contenteditable="true" spellcheck="false">HEALTH. SAFETY. ENVIRONMENT. EXCELLENCE.</span> &mdash; <em id="hintText" contenteditable="true" spellcheck="false" style="color:var(--sub);font-weight:600;">editable version, type your own numbers below</em></p>
+      </div>
+      <div class="toolbar">
+        <span id="saveNote">Saved</span>
+        <button class="pillbtn" onclick="window.print()">&#128424; Print / Save PDF</button>
+        <button class="pillbtn" onclick="exportData()">Export Dashboard</button>
+        <button class="pillbtn editOnly" onclick="document.getElementById('importFile').click()">Import Dashboard</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+        <button class="pillbtn editOnly" onclick="resetData()">Reset Sample Data</button>
+      </div>
+    </div>
+
+    <div class="filters">
+      <div class="field"><label>Year <button class="editListBtn editOnly" data-optkey="years" data-selid="f_year" title="Edit list of years">&#9998;</button></label>
+        <select id="f_year"></select>
+      </div>
+      <div class="field"><label>Month</label>
+        <select id="f_month">
+          <option>Jan</option><option>Feb</option><option>Mar</option><option>Apr</option>
+          <option selected>May</option><option>Jun</option><option>Jul</option><option>Aug</option>
+          <option>Sep</option><option>Oct</option><option>Nov</option><option>Dec</option>
+        </select>
+      </div>
+      <div class="field"><label>Department <button class="editListBtn editOnly" data-optkey="departments" data-selid="f_dept" title="Edit list of departments">&#9998;</button></label>
+        <select id="f_dept"></select>
+      </div>
+      <div class="field"><label>Location <button class="editListBtn editOnly" data-optkey="locations" data-selid="f_loc" title="Edit list of locations">&#9998;</button></label>
+        <select id="f_loc"></select>
+      </div>
+      <button class="refresh-btn editOnly" onclick="resetToZero()">&#8635; Refresh Data</button>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div id="validationWarnings" class="validation-banner" style="display:none;"></div>
+
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- ROW 1 -->
+    <div class="grid3">
+      <div class="panel">
+        <h3>INCIDENT TREND</h3>
+        <svg id="incidentTrendSvg" viewBox="0 0 320 150" width="100%" height="140"></svg>
+        <div style="font-size:10px;color:var(--sub);display:flex;gap:12px;">
+          <span style="color:#1f4fd8;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2023">2023</span></span><span style="color:#1b8a2f;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2024">2024</span></span>
+        </div>
+        <details class="editor"><summary contenteditable="true" spellcheck="false" id="editLbl_incident">Edit monthly values</summary>
+          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2023">2023</div>
+          <div class="month-grid" id="grid_incident2023"></div>
+          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2024">2024 (leave blank for months not yet reported)</div>
+          <div class="month-grid" id="grid_incident2024"></div>
+        </details>
+      </div>
+
+      <div class="panel">
+        <h3>INCIDENT BY TYPE</h3>
+        <div class="donut-wrap">
+          <div class="donut" id="donut_incidentType"><div class="donut-num"><div class="big" id="total_incidentType">0</div><div class="small">Total</div></div></div>
+          <ul class="legend" id="legend_incidentType"></ul>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>TOP INCIDENT LOCATIONS</h3>
+        <div id="bars_locations"></div>
+      </div>
+    </div>
+
+    <!-- ROW 2 -->
+    <div class="grid3">
+      <div class="panel">
+        <h3>INSPECTION SCORE TREND</h3>
+        <svg id="inspectionTrendSvg" viewBox="0 0 320 150" width="100%" height="140"></svg>
+        <div style="font-size:10px;color:var(--sub);display:flex;gap:12px;">
+          <span style="color:#1b8a2f;">&#9632; <span contenteditable="true" spellcheck="false" id="legend_scoreVal">Score (%)</span></span><span style="color:#1e293b;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_scoreTarget">Target (%)</span></span>
+        </div>
+        <details class="editor"><summary contenteditable="true" spellcheck="false" id="editLbl_score">Edit monthly values</summary>
+          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_scoreVal">Score (%)</div>
+          <div class="month-grid" id="grid_scoreVal"></div>
+          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_scoreTarget">Target (%)</div>
+          <div class="month-grid" id="grid_scoreTarget"></div>
+        </details>
+      </div>
+
+      <div class="panel">
+        <h3>TRAINING COMPLETION</h3>
+        <div class="donut-wrap">
+          <div class="donut" id="donut_training"><div class="donut-num"><div class="big" id="pct_training">0%</div><div class="small">Completed</div></div></div>
+          <ul class="legend" id="legend_training"></ul>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>ACTIONS BY STATUS</h3>
+        <div class="donut-wrap">
+          <div class="donut" id="donut_actions"><div class="donut-num"><div class="big" id="total_actions">0</div><div class="small">Total</div></div></div>
+          <ul class="legend" id="legend_actions"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 3 -->
+    <div class="grid3">
+      <div class="panel">
+        <h3>RISK MATRIX <span style="font-weight:400;color:var(--sub);font-size:10px;">(edit any cell)</span></h3>
+        <table class="risk-table" id="riskTable"></table>
+      </div>
+
+      <div class="panel">
+        <h3>ENVIRONMENTAL PERFORMANCE</h3>
+        <ul class="env-list" id="envList"></ul>
+      </div>
+
+      <div class="panel">
+        <h3>COMPLIANCE STATUS</h3>
+        <div class="donut-wrap">
+          <div class="donut" id="donut_compliance"><div class="donut-num"><div class="big" id="pct_compliance">0%</div><div class="small">Compliant</div></div></div>
+          <ul class="legend" id="legend_compliance"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="banner" id="bannerRow">
+      <div class="item"><span class="ic">&#128200;</span><div><div class="t1" contenteditable="true" spellcheck="false" data-idx="0" data-f="t1">REAL-TIME INSIGHTS</div><div class="t2" contenteditable="true" spellcheck="false" data-idx="0" data-f="t2">Up-to-date data for faster decisions</div></div></div>
+      <div class="item"><span class="ic">&#128276;</span><div><div class="t1" contenteditable="true" spellcheck="false" data-idx="1" data-f="t1">SMART AUTOMATION</div><div class="t2" contenteditable="true" spellcheck="false" data-idx="1" data-f="t2">Automated alerts &amp; notifications</div></div></div>
+      <div class="item"><span class="ic">&#128202;</span><div><div class="t1" contenteditable="true" spellcheck="false" data-idx="2" data-f="t1">DATA DRIVEN</div><div class="t2" contenteditable="true" spellcheck="false" data-idx="2" data-f="t2">Accurate reporting &amp; analytics</div></div></div>
+      <div class="item"><span class="ic">&#9989;</span><div><div class="t1" contenteditable="true" spellcheck="false" data-idx="3" data-f="t1">COMPLIANCE ASSURANCE</div><div class="t2" contenteditable="true" spellcheck="false" data-idx="3" data-f="t2">Stay audit ready at all times</div></div></div>
+      <div class="item"><span class="ic">&#128241;</span><div><div class="t1" contenteditable="true" spellcheck="false" data-idx="4" data-f="t1">MOBILE READY</div><div class="t2" contenteditable="true" spellcheck="false" data-idx="4" data-f="t2">Access anytime, anywhere</div></div></div>
+    </div>
+    <div class="footer-row">&#10003; <span id="footerText" contenteditable="true" spellcheck="false">Safety Today. Excellence Every Day.</span></div>
+
+  </div><!-- /page-dashboard -->
+
+  <div id="page-generic" style="display:none;">
+    <div class="header">
+      <div>
+        <h1 id="genericTitle">Page</h1>
+        <p class="tagline"><em style="color:var(--sub);font-weight:600;">fully editable &mdash; type in any cell, add or remove rows</em></p>
+      </div>
+      <div class="toolbar">
+        <span id="saveNote2" style="font-size:11.5px;color:var(--green-dark);font-weight:700;opacity:0;transition:opacity .3s;">Saved</span>
+        <button class="pillbtn dark editOnly" onclick="addGenericRow()">+ Add Row</button>
+      </div>
+    </div>
+    <div class="panel">
+      <table class="risk-table" id="genericTable" style="text-align:left;"></table>
+    </div>
+  </div><!-- /page-generic -->
+
+  <div id="page-json" style="display:none;">
+    <div class="header">
+      <div>
+        <h1>Edit JSON</h1>
+        <p class="tagline"><em style="color:var(--sub);font-weight:600;">the raw data behind the whole dashboard &mdash; edit directly and apply, or use it as a backup</em></p>
+      </div>
+      <div class="toolbar">
+        <span id="saveNote3" style="font-size:11.5px;color:var(--green-dark);font-weight:700;opacity:0;transition:opacity .3s;">Applied</span>
+        <button class="pillbtn" onclick="refreshJsonTextarea()">&#8635; Refresh from Dashboard</button>
+        <button class="pillbtn" onclick="copyJsonTextarea()">Copy to Clipboard</button>
+        <button class="pillbtn" onclick="exportData()">Download .json</button>
+        <button class="pillbtn editOnly" onclick="manualSnapshot()">Save Snapshot Now</button>
+        <button class="pillbtn dark editOnly" onclick="applyJsonTextarea()">Apply to Dashboard</button>
+      </div>
+    </div>
+    <div class="panel">
+      <p style="font-size:11.5px;color:var(--sub);margin:0 0 8px;">
+        This text box always shows valid JSON for the whole dashboard. Edit it directly (must stay
+        valid JSON) then click <b>Apply to Dashboard</b> to load your changes everywhere &mdash;
+        or paste in a JSON file's contents from Export/Import. When locked (view only), this is read-only.
+      </p>
+      <textarea id="jsonTextarea" spellcheck="false"
+        style="width:100%;min-height:460px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.5;border:1px solid var(--border);border-radius:8px;padding:12px;color:#111827;background:#fbfbfc;"></textarea>
+    </div>
+    <div class="panel" style="margin-top:14px;">
+      <h3 style="margin:0 0 4px;font-size:13px;">Recent Snapshots</h3>
+      <p style="font-size:11px;color:var(--sub);margin:0 0 10px;">
+        A snapshot is saved automatically every time you click Download .json / Export Dashboard,
+        and whenever you click "Save Snapshot Now". Only the last 5 are kept, in this browser.
+      </p>
+      <div id="snapshotsList"></div>
+    </div>
+  </div><!-- /page-json -->
+
+  </div>
+</div>
+
+<script>
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const STORAGE_KEY = 'hse_dashboard_data_v1';
+
+/* ============ EDIT-LOCK SECURITY ============
+   This is client-side only: it hides/disables editing controls from casual
+   viewers behind a password. Anyone with browser dev-tools could bypass it,
+   so don't rely on this for protecting truly sensitive data — but it stops
+   ordinary viewers from editing and keeps the dashboard "view only" for them.
+
+   DEFAULT PASSWORD is: changeme123
+   To set your own permanent password: open this file in a text editor,
+   change PASSWORD_PLAINTEXT_HINT below (just a reminder for you), then
+   replace DEFAULT_PASSWORD_HASH with the SHA-256 hex digest of your new
+   password. Or simpler: once unlocked in your browser, click "Change
+   Password" — this saves a new hash to THIS BROWSER only (localStorage),
+   which overrides the default below on this device.
+*/
+const PASSWORD_PLAINTEXT_HINT = 'changeme123'; // change this comment as a reminder to yourself
+const DEFAULT_PASSWORD_HASH = '494a715f7e9b4071aca61bac42ca858a309524e5864f0920030862a4ae7589be';
+const PW_OVERRIDE_KEY = 'hse_dashboard_pw_hash_v1';
+const SESSION_UNLOCK_KEY = 'hse_dashboard_unlocked_v1';
+let editMode = false;
+
+async function sha256Hex(text){
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function activeHash(){
+  try{ return localStorage.getItem(PW_OVERRIDE_KEY) || DEFAULT_PASSWORD_HASH; }
+  catch(e){ return DEFAULT_PASSWORD_HASH; }
+}
+async function tryUnlock(){
+  const pw = prompt('Enter the password to enable editing:');
+  if(pw===null) return;
+  const hash = await sha256Hex(pw);
+  if(hash === activeHash()){
+    editMode = true;
+    try{ sessionStorage.setItem(SESSION_UNLOCK_KEY, '1'); }catch(e){}
+    renderLockBadge();
+    applyEditMode();
+  }else{
+    alert('Incorrect password.');
+  }
+}
+function lockNow(){
+  editMode = false;
+  try{ sessionStorage.removeItem(SESSION_UNLOCK_KEY); }catch(e){}
+  renderLockBadge();
+  applyEditMode();
+}
+async function changePassword(){
+  if(!editMode) return;
+  const p1 = prompt('Choose a new password:');
+  if(!p1) return;
+  const p2 = prompt('Confirm the new password:');
+  if(p1 !== p2){ alert('Passwords did not match. Nothing was changed.'); return; }
+  const hash = await sha256Hex(p1);
+  try{ localStorage.setItem(PW_OVERRIDE_KEY, hash); }catch(e){}
+  alert('Password updated for this browser. Remember it — there is no recovery.');
+}
+function renderLockBadge(){
+  const el = document.getElementById('lockBadge');
+  el.className = 'lock-badge ' + (editMode ? 'unlocked' : 'locked');
+  if(editMode){
+    el.innerHTML = `
+      <span class="state">&#128275; Editing enabled</span>
+      <div class="row">
+        <button class="btn-lock" onclick="lockNow()">Lock</button>
+        <button class="btn-pw" onclick="changePassword()">Change password</button>
+      </div>`;
+  }else{
+    el.innerHTML = `
+      <span class="state">&#128274; View only</span>
+      <button class="btn-unlock" onclick="tryUnlock()">Unlock editing</button>`;
+  }
+}
+function applyEditMode(){
+  document.querySelectorAll('.main input, .main select, .main textarea').forEach(el=>{
+    if(el.id==='importFile') return;
+    el.disabled = !editMode;
+  });
+  document.querySelectorAll('.computed-kpi').forEach(el=>{ el.disabled = true; }); // never user-editable
+  document.querySelectorAll('#page-dashboard [contenteditable], #page-generic [contenteditable], #brandNameText, #userName, #userRole').forEach(el=>{
+    el.contentEditable = editMode ? 'true' : 'false';
+  });
+  document.querySelectorAll('.editOnly').forEach(el=>{ el.disabled = !editMode; });
+  document.querySelectorAll('.delRowBtn').forEach(el=>{ el.disabled = !editMode; });
+}
+
+/* ---------- VALIDATION WARNINGS ---------- */
+function runValidation(){
+  const warnings = [];
+  data.kpis.forEach(k=>{
+    if(k.suffix==='%'){
+      const v = parseFloat(k.value)||0;
+      if(v>100) warnings.push(`"${k.label}" is ${v}% — above 100%.`);
+      if(v<0) warnings.push(`"${k.label}" is ${v}% — below 0%.`);
+    }
+  });
+  data.environmental.forEach(it=>{
+    if(/%/.test(it.label)){
+      const v = parseFloat(it.value)||0;
+      if(v>100) warnings.push(`"${it.label}" is ${v} — above 100%.`);
+      if(v<0) warnings.push(`"${it.label}" is ${v} — below 0%.`);
+    }
+  });
+  const scoreVals = data.scoreVal.filter(v=>v!==''&&v!==undefined).map(v=>parseFloat(v));
+  const targetVals = data.scoreTarget.filter(v=>v!==''&&v!==undefined).map(v=>parseFloat(v));
+  if(scoreVals.some(v=>v>100||v<0)) warnings.push('Inspection Score Trend has a monthly value outside 0–100%.');
+  if(targetVals.some(v=>v>100||v<0)) warnings.push('Inspection Score Trend has a target value outside 0–100%.');
+  const trTotal = (parseFloat(data.training.completed)||0) + (parseFloat(data.training.pending)||0);
+  if(Math.round(trTotal) !== 100){
+    warnings.push(`Training Completion: Completed + Pending = ${trTotal}%, expected 100%.`);
+  }
+  return warnings;
+}
+function renderValidationWarnings(){
+  const el = document.getElementById('validationWarnings');
+  if(!el) return;
+  const warnings = runValidation();
+  if(warnings.length===0){
+    el.style.display = 'none';
+    el.innerHTML = '';
+    return;
+  }
+  el.style.display = '';
+  el.innerHTML = `<div class="vb-title">&#9888; ${warnings.length} thing${warnings.length>1?'s':''} to double-check</div>
+    <ul>${warnings.map(w=>`<li>${w}</li>`).join('')}</ul>`;
+}
+
+function sampleData(){
+  return {
+    kpis: [
+      {icon:'&#128101;', color:'#1f4fd8', label:'Total Incidents', value:12, delta:20, dir:'down', computed:'incidentByType'},
+      {icon:'&#9888;', color:'#f2711c', label:'Near Miss', value:5, delta:28, dir:'down'},
+      {icon:'&#128203;', color:'#1b8a2f', label:'Inspection Score', value:98, suffix:'%', delta:8, dir:'up'},
+      {icon:'&#127891;', color:'#6f2bd6', label:'Training Completion', value:92, suffix:'%', delta:6, dir:'up'},
+      {icon:'&#127811;', color:'#1b8a2f', label:'Environmental Compliance', value:100, suffix:'%', delta:5, dir:'up'},
+      {icon:'&#128737;', color:'#1f4fd8', label:'Open Actions', value:15, delta:12, dir:'down', computed:'actionsOpen'}
+    ],
+    incidentTrend2023: [3,6,8,9,12,18,20,25,19,19,15,10],
+    incidentTrend2024: [8,7,10,12,14,13,'','','','','',''],
+    incidentByType: [
+      {label:'Medical Treatment', value:4, color:'#1f4fd8'},
+      {label:'First Aid', value:3, color:'#1b8a2f'},
+      {label:'Restricted Work', value:2, color:'#f2711c'},
+      {label:'Lost Time Injury', value:2, color:'#e02424'},
+      {label:'Property Damage', value:1, color:'#6f2bd6'}
+    ],
+    locations: [
+      {label:'Plant Area 1', value:5},
+      {label:'Warehouse', value:3},
+      {label:'Construction Site', value:2},
+      {label:'Office', value:1},
+      {label:'Workshop', value:1}
+    ],
+    scoreVal: [80,78,82,79,83,81,84,82,83,85,86,84],
+    scoreTarget: [90,90,90,90,90,90,90,90,90,90,90,90],
+    training: {completed:92, pending:8},
+    actions: [
+      {label:'Open', value:15, color:'#e02424'},
+      {label:'In Progress', value:10, color:'#f2711c'},
+      {label:'Due Soon', value:6, color:'#f5b400'},
+      {label:'Closed', value:4, color:'#1b8a2f'}
+    ],
+    riskMatrix: [
+      [5,10,15,20,25],
+      [4,8,12,16,20],
+      [3,6,9,12,15],
+      [2,4,6,8,10],
+      [1,2,3,4,5]
+    ],
+    environmental: [
+      {icon:'&#128465;', label:'Waste Generated (kg)', value:12450, delta:8, dir:'down'},
+      {icon:'&#9851;', label:'Recycled Rate (%)', value:78, delta:5, dir:'up'},
+      {icon:'&#9889;', label:'Energy Consumption (kWh)', value:245600, delta:5, dir:'down'},
+      {icon:'&#128167;', label:'Water Consumption (m&sup3;)', value:3850, delta:7, dir:'down'},
+      {icon:'&#9981;', label:'Fuel Consumption (L)', value:18600, delta:4, dir:'down'}
+    ],
+    compliance: {compliant:50, nonCompliant:1},
+    filterOptions: {
+      years: ['2023','2024','2025','2026'],
+      departments: ['All','Operations','Maintenance','Warehouse','Construction'],
+      locations: ['All','Plant Area 1','Warehouse','Construction Site','Office','Workshop']
+    },
+    filterSelected: { year:'2024', month:'May', department:'All', location:'All' },
+    text: {
+      title: 'COMPLETE <span class="accent">HSE</span> DASHBOARD',
+      tagline: 'HEALTH. SAFETY. ENVIRONMENT. EXCELLENCE.',
+      hint: 'editable version, type your own numbers below',
+      brandName: 'HSE&nbsp;&nbsp;MANAGEMENT SYSTEM',
+      userName: 'HSE Manager',
+      userRole: 'Safety First, Always',
+      footer: 'Safety Today. Excellence Every Day.',
+      legend_incident2023: '2023',
+      legend_incident2024: '2024',
+      legend_scoreVal: 'Score (%)',
+      legend_scoreTarget: 'Target (%)',
+      editLbl_incident: 'Edit monthly values',
+      lbl_incident2023: '2023',
+      lbl_incident2024: '2024 (leave blank for months not yet reported)',
+      editLbl_score: 'Edit monthly values',
+      lbl_scoreVal: 'Score (%)',
+      lbl_scoreTarget: 'Target (%)',
+      banner: [
+        {t1:'REAL-TIME INSIGHTS', t2:'Up-to-date data for faster decisions'},
+        {t1:'SMART AUTOMATION', t2:'Automated alerts &amp; notifications'},
+        {t1:'DATA DRIVEN', t2:'Accurate reporting &amp; analytics'},
+        {t1:'COMPLIANCE ASSURANCE', t2:'Stay audit ready at all times'},
+        {t1:'MOBILE READY', t2:'Access anytime, anywhere'}
+      ],
+      tabLabels: {}
+    },
+    pages: {
+      incidentManagement: {
+        columns:['Date','Location','Type','Severity','Status'],
+        rows:[
+          ['2024-05-02','Plant Area 1','Medical Treatment','High','Closed'],
+          ['2024-05-08','Warehouse','First Aid','Low','Closed'],
+          ['2024-05-14','Construction Site','Lost Time Injury','High','Open']
+        ]
+      },
+      nearMiss: {
+        columns:['Date','Location','Description','Reported By','Status'],
+        rows:[
+          ['2024-05-03','Workshop','Slippery floor near entrance','A. Rahman','Closed'],
+          ['2024-05-11','Office','Loose cable across walkway','S. Ibrahim','Open']
+        ]
+      },
+      observations: {
+        columns:['Date','Observer','Area','Category','Status'],
+        rows:[
+          ['2024-05-05','J. Al-Otaibi','Plant Area 1','Unsafe Act','Closed'],
+          ['2024-05-10','M. Faisal','Warehouse','Unsafe Condition','Open']
+        ]
+      },
+      inspections: {
+        columns:['Date','Area','Inspector','Score (%)','Status'],
+        rows:[
+          ['2024-05-01','Plant Area 1','H. Al-Qahtani','96','Completed'],
+          ['2024-05-15','Warehouse','H. Al-Qahtani','98','Completed']
+        ]
+      },
+      permitToWork: {
+        columns:['Permit ID','Type','Location','Requested By','Status'],
+        rows:[
+          ['PTW-2401','Hot Work','Workshop','K. Zaid','Approved'],
+          ['PTW-2402','Confined Space','Plant Area 1','R. Fahad','Pending']
+        ]
+      },
+      trainingManagement: {
+        columns:['Employee','Course','Date','Status'],
+        rows:[
+          ['A. Salem','Fire Safety','2024-05-04','Completed'],
+          ['B. Naser','First Aid Refresher','2024-05-12','Completed'],
+          ['C. Yusuf','Working at Heights','2024-05-20','Pending']
+        ]
+      },
+      toolboxTalks: {
+        columns:['Date','Topic','Presenter','Attendees'],
+        rows:[
+          ['2024-05-06','Heat Stress Awareness','Site Supervisor','24'],
+          ['2024-05-13','PPE Compliance','Site Supervisor','19']
+        ]
+      },
+      auditCompliance: {
+        columns:['Audit','Date','Auditor','Score (%)','Status'],
+        rows:[
+          ['Internal HSE Audit','2024-05-09','External Auditor Co.','94','Completed'],
+          ['ISO 45001 Surveillance','2024-05-22','Cert Body','—','Scheduled']
+        ]
+      },
+      riskManagement: {
+        columns:['Risk','Category','Likelihood','Consequence','Owner'],
+        rows:[
+          ['Fall from height','Safety','3','4','Site Manager'],
+          ['Chemical spill','Environmental','2','4','HSE Officer']
+        ]
+      },
+      environmental: {
+        columns:['Metric','Value','Unit','Date'],
+        rows:[
+          ['Waste Generated','12450','kg','2024-05-31'],
+          ['Recycled Rate','78','%','2024-05-31']
+        ]
+      },
+      objectivesTargets: {
+        columns:['Objective','Target','Current','Due Date'],
+        rows:[
+          ['Reduce LTI Rate','0 incidents','2 incidents','2024-12-31'],
+          ['100% Training Compliance','100%','92%','2024-09-30']
+        ]
+      },
+      kpisPerformance: {
+        columns:['KPI','Target','Actual','Status'],
+        rows:[
+          ['Inspection Score','95%','98%','On Track'],
+          ['Training Completion','95%','92%','At Risk']
+        ]
+      },
+      actionTracker: {
+        columns:['Action','Owner','Due Date','Status'],
+        rows:[
+          ['Repair warehouse lighting','Facilities','2024-06-05','In Progress'],
+          ['Update PTW procedure','HSE Officer','2024-06-10','Open']
+        ]
+      },
+      documentManagement: {
+        columns:['Document','Category','Version','Last Updated'],
+        rows:[
+          ['HSE Policy','Policy','v3.2','2024-03-01'],
+          ['Emergency Response Plan','Procedure','v2.0','2024-04-15']
+        ]
+      },
+      reports: {
+        columns:['Report Name','Period','Generated By','Date'],
+        rows:[
+          ['Monthly HSE Report','May 2024','HSE Manager','2024-06-01'],
+          ['Quarterly Compliance Report','Q2 2024','HSE Manager','2024-07-01']
+        ]
+      },
+      settings: {
+        columns:['Setting','Value'],
+        rows:[
+          ['Company Name','Your Company Ltd.'],
+          ['Fiscal Year Start','January'],
+          ['Default Location','All']
+        ]
+      },
+      help: {
+        columns:['Topic','Description'],
+        rows:[
+          ['Editing values','Click any number or text field anywhere and type — everything saves automatically.'],
+          ['Adding rows','Use the "+ Add Row" button on each page to log a new item.'],
+          ['Backing up data','Use Export Dashboard on the Dashboard tab to save a copy of everything.']
+        ]
+      }
+    }
+  };
+}
+
+const PAGE_TITLES = {
+  incidentManagement:'Incident Management', nearMiss:'Near Miss', observations:'Observations',
+  inspections:'Inspections', permitToWork:'Permit to Work', trainingManagement:'Training Management',
+  toolboxTalks:'Toolbox Talks', auditCompliance:'Audit & Compliance', riskManagement:'Risk Management',
+  environmental:'Environmental', objectivesTargets:'Objectives & Targets', kpisPerformance:'KPIs & Performance',
+  actionTracker:'Action Tracker', documentManagement:'Document Management', reports:'Reports',
+  settings:'Settings', help:'Help'
+};
+let currentPage = 'dashboard';
+
+let data = load();
+
+function load(){
+  const fresh = sampleData();
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const saved = JSON.parse(raw);
+      // merge so older saved data still gets new fields like "pages", "text", "filterOptions"
+      return Object.assign({}, fresh, saved, {
+        pages: Object.assign({}, fresh.pages, saved.pages||{}),
+        text: Object.assign({}, fresh.text, saved.text||{}, {
+          banner: (saved.text && saved.text.banner) ? saved.text.banner : fresh.text.banner,
+          tabLabels: Object.assign({}, fresh.text.tabLabels, (saved.text && saved.text.tabLabels)||{})
+        }),
+        filterOptions: Object.assign({}, fresh.filterOptions, saved.filterOptions||{}),
+        filterSelected: Object.assign({}, fresh.filterSelected, saved.filterSelected||{})
+      });
+    }
+  }catch(e){}
+  return fresh;
+}
+function save(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+  flashSave();
+}
+function flashSave(){
+  const n = document.getElementById('saveNote');
+  n.style.opacity = 1;
+  clearTimeout(window._st);
+  window._st = setTimeout(()=>{ n.style.opacity = 0; }, 900);
+}
+function resetData(){
+  if(confirm('Reset all values back to the sample data? This clears your edits.')){
+    pushSnapshot('Before Reset Sample Data');
+    data = sampleData();
+    save();
+    renderAll();
+  }
+}
+function resetToZero(){
+  if(!editMode){ alert('Unlock editing first to use Refresh Data.'); return; }
+  if(!confirm('This sets every number on the dashboard to 0 and clears every row on every tab. This cannot be undone. Continue?')) return;
+
+  pushSnapshot('Before Refresh Data reset');
+  data.kpis.forEach(k=>{ k.value = 0; k.delta = 0; });
+  data.incidentTrend2023 = data.incidentTrend2023.map(()=>0);
+  data.incidentTrend2024 = data.incidentTrend2024.map(()=>0);
+  data.incidentByType.forEach(x=>{ x.value = 0; });
+  data.locations.forEach(x=>{ x.value = 0; });
+  data.scoreVal = data.scoreVal.map(()=>0);
+  data.scoreTarget = data.scoreTarget.map(()=>0);
+  data.training.completed = 0;
+  data.training.pending = 0;
+  data.actions.forEach(x=>{ x.value = 0; });
+  data.riskMatrix = data.riskMatrix.map(row=>row.map(()=>0));
+  data.environmental.forEach(x=>{ x.value = 0; x.delta = 0; });
+  data.compliance.compliant = 0;
+  data.compliance.nonCompliant = 0;
+  Object.keys(data.pages).forEach(k=>{ data.pages[k].rows = []; });
+
+  save();
+  renderAll();
+  if(currentPage !== 'dashboard' && currentPage !== 'jsonEditor'){
+    renderGenericPage(currentPage);
+  }
+  if(currentPage === 'jsonEditor'){
+    refreshJsonTextarea();
+  }
+}
+const SNAPSHOTS_KEY = 'hse_dashboard_snapshots_v1';
+const MAX_SNAPSHOTS = 5;
+
+function getSnapshots(){
+  try{ return JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function pushSnapshot(label){
+  let snaps = getSnapshots();
+  snaps.unshift({ ts: Date.now(), label: label||'', json: JSON.stringify(data) });
+  snaps = snaps.slice(0, MAX_SNAPSHOTS);
+  try{ localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snaps)); }catch(e){}
+}
+function manualSnapshot(){
+  if(!editMode) return;
+  pushSnapshot('Manual save');
+  renderSnapshotsList();
+  flashSave3();
+}
+function restoreSnapshot(idx){
+  if(!editMode) return;
+  const snaps = getSnapshots();
+  const snap = snaps[idx];
+  if(!snap) return;
+  if(!confirm(`Restore the snapshot from ${new Date(snap.ts).toLocaleString()}? This replaces everything currently on the dashboard.`)) return;
+  try{
+    data = JSON.parse(snap.json);
+  }catch(e){
+    alert('That snapshot is corrupted and could not be restored.');
+    return;
+  }
+  save();
+  renderAll();
+  refreshJsonTextarea();
+  renderSnapshotsList();
+  flashSave3();
+}
+function renderSnapshotsList(){
+  const el = document.getElementById('snapshotsList');
+  if(!el) return;
+  const snaps = getSnapshots();
+  if(snaps.length===0){
+    el.innerHTML = '<p class="snap-empty">No snapshots yet. Click "Save Snapshot Now", or one will be created automatically next time you use Download .json / Export Dashboard.</p>';
+    return;
+  }
+  el.innerHTML = snaps.map((s,i)=>`
+    <div class="snap-row">
+      <span>${new Date(s.ts).toLocaleString()}${s.label ? ' &mdash; '+s.label : ''}</span>
+      <button class="pillbtn editOnly" onclick="restoreSnapshot(${i})">Restore</button>
+    </div>`).join('');
+}
+
+function exportData(){
+  pushSnapshot('Export');
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'hse-dashboard-data.json';
+  a.click();
+  renderSnapshotsList();
+}
+function importData(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      pushSnapshot('Before Import');
+      data = JSON.parse(e.target.result);
+      save();
+      renderAll();
+      renderSnapshotsList();
+    }catch(err){ alert('Could not read that file as valid JSON.'); }
+  };
+  reader.readAsText(file);
+  evt.target.value='';
+}
+
+function conic(segments){
+  const total = segments.reduce((s,x)=>s+(parseFloat(x.value)||0),0) || 1;
+  let acc = 0; const stops=[];
+  segments.forEach(seg=>{
+    const v = parseFloat(seg.value)||0;
+    const pct = v/total*100;
+    const start = acc, end = acc+pct;
+    stops.push(`${seg.color} ${start}% ${end}%`);
+    acc = end;
+  });
+  if(acc < 100) stops.push(`#e5e7eb ${acc}% 100%`);
+  return `conic-gradient(${stops.join(',')})`;
+}
+
+function riskColor(v){
+  v = parseFloat(v)||0;
+  if(v<=4) return '#7fc243';
+  if(v<=9) return '#f5b400';
+  if(v<=14) return '#f2711c';
+  if(v<=19) return '#e02424';
+  return '#c81e1e';
+}
+
+/* ---------- KPI CARDS ---------- */
+function syncComputedKpis(){
+  data.kpis.forEach(k=>{
+    if(k.computed==='incidentByType'){
+      k.value = data.incidentByType.reduce((s,x)=>s+(parseFloat(x.value)||0),0);
+    }else if(k.computed==='actionsOpen'){
+      // "Open Actions" mirrors just the Open-status count (first row of Actions by Status),
+      // not the sum of every status — matches the original dashboard's meaning.
+      const openItem = data.actions.find(x=>x.label==='Open') || data.actions[0];
+      k.value = openItem ? (parseFloat(openItem.value)||0) : 0;
+    }
+  });
+}
+
+function renderKpis(){
+  syncComputedKpis();
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = '';
+  data.kpis.forEach((k,i)=>{
+    const card = document.createElement('div');
+    card.className = 'kpi-card';
+    const isComputed = !!k.computed;
+    const computedTitle = isComputed ? `title="Auto-calculated from ${k.computed==='incidentByType' ? 'Incident by Type' : 'Actions by Status'} below \u2014 edit the values there instead"` : '';
+    card.innerHTML = `
+      <div class="kpi-top">
+        <span class="kpi-icon" style="color:${k.color};">${k.icon}</span>
+        <div>
+          <div style="display:flex;align-items:baseline;gap:2px;">
+            <input class="kpi-value-in${isComputed ? ' computed-kpi':''}" type="number" value="${k.value}" data-i="${i}" data-f="value" ${isComputed ? 'readonly':''} ${computedTitle}>
+            <span class="kpi-suffix">${k.suffix||''}</span>
+            ${isComputed ? '<span class="auto-tag" title="Auto-calculated">&#8635; auto</span>' : ''}
+          </div>
+          <div class="kpi-label">${k.label}</div>
+        </div>
+      </div>
+      <div class="kpi-delta-row ${k.dir==='up'?'up-color':'down-color'}" id="kpiDeltaRow${i}">
+        <select data-i="${i}" data-f="dir">
+          <option value="up" ${k.dir==='up'?'selected':''}>&#9650;</option>
+          <option value="down" ${k.dir==='down'?'selected':''}>&#9660;</option>
+        </select>
+        <input type="number" value="${k.delta}" data-i="${i}" data-f="delta">%
+        <span class="grey">vs Last Month</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll('input,select').forEach(el=>{
+    el.addEventListener('input', kpiFieldChanged);
+    el.addEventListener('change', kpiFieldChanged);
+  });
+  applyEditMode();
+}
+function kpiFieldChanged(e){
+  const i = +e.target.dataset.i, f = e.target.dataset.f;
+  if(f==='value' && data.kpis[i].computed) return; // computed fields aren't user-editable
+  data.kpis[i][f] = (f==='value'||f==='delta') ? parseFloat(e.target.value)||0 : e.target.value;
+  const row = document.getElementById('kpiDeltaRow'+i);
+  row.className = 'kpi-delta-row ' + (data.kpis[i].dir==='up' ? 'up-color':'down-color');
+  save();
+  renderValidationWarnings();
+}
+
+/* ---------- LINE/BAR TREND CHARTS ---------- */
+function buildMonthGrid(containerId, arr, onEdit){
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  MONTHS.forEach((m,idx)=>{
+    const cell = document.createElement('div');
+    cell.className='mcell';
+    cell.innerHTML = `<span>${m}</span><input type="number" value="${arr[idx]===undefined?'':arr[idx]}">`;
+    const input = cell.querySelector('input');
+    input.addEventListener('input', ()=>{ arr[idx] = input.value===''?'':parseFloat(input.value); onEdit(); save(); });
+    el.appendChild(cell);
+  });
+}
+
+function drawDualLine(svgId, seriesA, seriesB, colorA, colorB, maxVal, showBarsForA){
+  const svg = document.getElementById(svgId);
+  const W=320,H=150, padL=26, padB=20, top=6, plotW=W-padL-6, plotH=H-padB-top;
+  const stepX = plotW/11;
+  function yOf(v){ return top + plotH - (v/maxVal)*plotH; }
+  let bars='', lineA='', lineB='', ticks='', xlabels='';
+  for(let i=0;i<=4;i++){
+    const val = Math.round(maxVal - (maxVal/4)*i);
+    ticks += `<text x="2" y="${top+ (plotH/4)*i + 4}" font-size="8" fill="#9ca3af">${val}</text>`;
+  }
+  let ptsA=[], ptsB=[];
+  MONTHS.forEach((m,idx)=>{
+    const x = padL + stepX*idx;
+    xlabels += `<text x="${x-6}" y="${H-4}" font-size="7.5" fill="#6b7280">${m}</text>`;
+    const va = seriesA[idx];
+    if(va!==undefined && va!==''){
+      const y = yOf(parseFloat(va));
+      ptsA.push(x+','+y);
+      if(showBarsForA) bars += `<rect x="${x-5}" y="${y}" width="10" height="${(top+plotH)-y}" fill="${colorA}"></rect>`;
+    }
+    const vb = seriesB[idx];
+    if(vb!==undefined && vb!==''){
+      const y = yOf(parseFloat(vb));
+      ptsB.push(x+','+y);
+    }
+  });
+  if(!showBarsForA) lineA = `<polyline fill="none" stroke="${colorA}" stroke-width="2.2" points="${ptsA.join(' ')}"/>`;
+  lineB = `<polyline fill="none" stroke="${colorB}" stroke-width="1.6" points="${ptsB.join(' ')}"/>`;
+  const dotsA = showBarsForA ? '' : ptsA.map(p=>{const [x,y]=p.split(',');return `<circle cx="${x}" cy="${y}" r="3" fill="${colorA}"/>`;}).join('');
+  svg.innerHTML = `
+    <line x1="${padL}" y1="${top}" x2="${padL}" y2="${top+plotH}" stroke="#e5e7eb"/>
+    <line x1="${padL}" y1="${top+plotH}" x2="${W-6}" y2="${top+plotH}" stroke="#e5e7eb"/>
+    ${ticks}
+    ${bars}
+    ${lineA}
+    ${dotsA}
+    ${lineB}
+    ${xlabels}
+  `;
+}
+
+function renderIncidentTrend(){
+  drawDualLine('incidentTrendSvg', data.incidentTrend2023, data.incidentTrend2024, '#1f4fd8', '#1b8a2f', 30, false);
+  buildMonthGrid('grid_incident2023', data.incidentTrend2023, renderIncidentTrend);
+  buildMonthGrid('grid_incident2024', data.incidentTrend2024, renderIncidentTrend);
+}
+function renderInspectionTrend(){
+  drawDualLine('inspectionTrendSvg', data.scoreVal, data.scoreTarget, '#1b8a2f', '#1e293b', 100, true);
+  buildMonthGrid('grid_scoreVal', data.scoreVal, renderInspectionTrend);
+  buildMonthGrid('grid_scoreTarget', data.scoreTarget, renderInspectionTrend);
+  renderValidationWarnings();
+}
+
+/* ---------- DONUTS WITH EDITABLE LEGEND ---------- */
+function renderMultiDonut(donutId, legendId, totalId, items, totalLabel){
+  const donut = document.getElementById(donutId);
+  donut.style.background = conic(items);
+  const total = items.reduce((s,x)=>s+(parseFloat(x.value)||0),0);
+  if(totalId) document.getElementById(totalId).textContent = totalLabel==='pct' ? Math.round(items[0].value/total*100 || 0)+'%' : total;
+  const legend = document.getElementById(legendId);
+  legend.innerHTML = '';
+  items.forEach((it,idx)=>{
+    const pct = total? Math.round(it.value/total*100):0;
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="name"><span class="dot" style="background:${it.color};"></span>${it.label}</span>
+      <input type="number" value="${it.value}" data-idx="${idx}">
+      <span class="pct">${pct}%</span>`;
+    legend.appendChild(li);
+    li.querySelector('input').addEventListener('input', e=>{
+      items[idx].value = parseFloat(e.target.value)||0;
+      renderDonutsAndBars();
+      save();
+    });
+  });
+}
+
+function renderDonutsAndBars(){
+  renderMultiDonut('donut_incidentType','legend_incidentType','total_incidentType', data.incidentByType, 'count');
+
+  const trItems = [
+    {label:'Completed', value:data.training.completed, color:'#1b8a2f'},
+    {label:'Pending', value:data.training.pending, color:'#c9ccd1'}
+  ];
+  document.getElementById('donut_training').style.background = conic(trItems);
+  const trTotal = (parseFloat(data.training.completed)||0)+(parseFloat(data.training.pending)||0) || 1;
+  document.getElementById('pct_training').textContent = Math.round(data.training.completed/trTotal*100)+'%';
+  const trLegend = document.getElementById('legend_training');
+  trLegend.innerHTML = '';
+  ['completed','pending'].forEach((key,idx)=>{
+    const li = document.createElement('li');
+    const color = key==='completed'?'#1b8a2f':'#c9ccd1';
+    const pct = Math.round(data.training[key]/trTotal*100);
+    li.innerHTML = `<span class="name"><span class="dot" style="background:${color};"></span>${key.charAt(0).toUpperCase()+key.slice(1)}</span>
+      <input type="number" value="${data.training[key]}" data-key="${key}"><span class="pct">${pct}%</span>`;
+    trLegend.appendChild(li);
+    li.querySelector('input').addEventListener('input', e=>{
+      data.training[key] = parseFloat(e.target.value)||0;
+      renderDonutsAndBars(); save();
+    });
+  });
+
+  renderMultiDonut('donut_actions','legend_actions','total_actions', data.actions, 'count');
+
+  const compItems = [
+    {label:'Compliant', value:data.compliance.compliant, color:'#1b8a2f'},
+    {label:'Non-Compliant', value:data.compliance.nonCompliant, color:'#e02424'}
+  ];
+  document.getElementById('donut_compliance').style.background = conic(compItems);
+  const compTotal = (parseFloat(data.compliance.compliant)||0)+(parseFloat(data.compliance.nonCompliant)||0) || 1;
+  document.getElementById('pct_compliance').textContent = Math.round(data.compliance.compliant/compTotal*100)+'%';
+  const compLegend = document.getElementById('legend_compliance');
+  compLegend.innerHTML='';
+  ['compliant','nonCompliant'].forEach(key=>{
+    const li = document.createElement('li');
+    const color = key==='compliant'?'#1b8a2f':'#e02424';
+    const label = key==='compliant'?'Compliant':'Non-Compliant';
+    const val = data.compliance[key];
+    const pct = Math.round(val/compTotal*100);
+    li.innerHTML = `<span class="name"><span class="dot" style="background:${color};"></span>${label}</span>
+      <input type="number" value="${val}" data-key="${key}"><span class="pct">${pct}%</span>`;
+    compLegend.appendChild(li);
+    li.querySelector('input').addEventListener('input', e=>{
+      data.compliance[key] = parseFloat(e.target.value)||0;
+      renderDonutsAndBars(); save();
+    });
+  });
+
+  renderKpis();
+  renderValidationWarnings();
+}
+
+/* ---------- BARS: TOP INCIDENT LOCATIONS ---------- */
+function renderBars(){
+  const wrap = document.getElementById('bars_locations');
+  wrap.innerHTML = '';
+  const max = Math.max(1, ...data.locations.map(l=>parseFloat(l.value)||0));
+  data.locations.forEach((loc,idx)=>{
+    const row = document.createElement('div');
+    row.className='bar-row';
+    const pct = (parseFloat(loc.value)||0)/max*100;
+    row.innerHTML = `<div class="lbl">${loc.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+      <input type="number" value="${loc.value}" data-idx="${idx}">`;
+    wrap.appendChild(row);
+    row.querySelector('input').addEventListener('input', e=>{
+      data.locations[idx].value = parseFloat(e.target.value)||0;
+      renderBars(); save();
+    });
+  });
+}
+
+/* ---------- RISK MATRIX ---------- */
+function renderRiskMatrix(){
+  const table = document.getElementById('riskTable');
+  const likelihoods = ['5 Almost Certain','4 Likely','3 Possible','2 Unlikely','1 Rare'];
+  const conseq = ['1<br>Insignificant','2<br>Minor','3<br>Moderate','4<br>Major','5<br>Severe'];
+  let html = `<tr><th style="text-align:left;">Likelihood</th><th colspan="5">Consequence</th></tr>
+    <tr><th></th>${conseq.map(c=>`<th>${c}</th>`).join('')}</tr>`;
+  data.riskMatrix.forEach((row,r)=>{
+    html += `<tr><td class="likelihood">${likelihoods[r]}</td>` +
+      row.map((v,c)=>`<td class="risk-cell"><input type="number" value="${v}" data-r="${r}" data-c="${c}" style="background:${riskColor(v)}"></td>`).join('') +
+      `</tr>`;
+  });
+  table.innerHTML = html;
+  table.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const r=+e.target.dataset.r, c=+e.target.dataset.c, v=parseFloat(e.target.value)||0;
+      data.riskMatrix[r][c]=v;
+      e.target.style.background = riskColor(v);
+      save();
+    });
+  });
+}
+
+/* ---------- ENVIRONMENTAL PERFORMANCE ---------- */
+function renderEnv(){
+  const list = document.getElementById('envList');
+  list.innerHTML = '';
+  data.environmental.forEach((it,idx)=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="left">${it.icon} ${it.label}</span>
+      <span style="display:flex;align-items:center;gap:4px;">
+        <input class="valin" type="number" value="${it.value}" data-idx="${idx}" data-f="value">
+        <select class="dirsel" data-idx="${idx}" data-f="dir">
+          <option value="up" ${it.dir==='up'?'selected':''}>&#9650;</option>
+          <option value="down" ${it.dir==='down'?'selected':''}>&#9660;</option>
+        </select>
+        <input class="deltain" type="number" value="${it.delta}" data-idx="${idx}" data-f="delta">%
+      </span>`;
+    list.appendChild(li);
+  });
+  list.querySelectorAll('input,select').forEach(el=>{
+    el.addEventListener('input', e=>{
+      const idx=+e.target.dataset.idx, f=e.target.dataset.f;
+      data.environmental[idx][f] = (f==='value'||f==='delta') ? parseFloat(e.target.value)||0 : e.target.value;
+      save();
+      renderValidationWarnings();
+    });
+  });
+}
+
+/* ---------- FILTERS (Year / Month / Department / Location) ---------- */
+function populateSelect(id, options, selectedValue){
+  const sel = document.getElementById(id);
+  sel.innerHTML = options.map(o=>
+    `<option value="${o}" ${o===selectedValue ? 'selected':''}>${o}</option>`
+  ).join('');
+}
+function renderFilters(){
+  populateSelect('f_year', data.filterOptions.years, data.filterSelected.year);
+  populateSelect('f_month', MONTHS, data.filterSelected.month);
+  populateSelect('f_dept', data.filterOptions.departments, data.filterSelected.department);
+  populateSelect('f_loc', data.filterOptions.locations, data.filterSelected.location);
+}
+function wireFilters(){
+  const bind = (id, key)=>{
+    document.getElementById(id).addEventListener('change', e=>{
+      data.filterSelected[key] = e.target.value;
+      save();
+    });
+  };
+  bind('f_year','year'); bind('f_month','month'); bind('f_dept','department'); bind('f_loc','location');
+
+  document.querySelectorAll('.editListBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!editMode) return;
+      const optKey = btn.dataset.optkey;   // years | departments | locations
+      const selId = btn.dataset.selid;     // f_year | f_dept | f_loc
+      const selKey = {years:'year', departments:'department', locations:'location'}[optKey];
+      const current = data.filterOptions[optKey].join(', ');
+      const input = prompt(`Edit the list (comma-separated):`, current);
+      if(input===null) return;
+      const list = input.split(',').map(s=>s.trim()).filter(s=>s.length>0);
+      if(list.length===0){ alert('List cannot be empty.'); return; }
+      data.filterOptions[optKey] = list;
+      if(!list.includes(data.filterSelected[selKey])) data.filterSelected[selKey] = list[0];
+      renderFilters();
+      save();
+    });
+  });
+}
+
+/* ---------- SIDEBAR TABS (incl. Edit JSON) ---------- */
+const TAB_KEYS = ['dashboard', ...Object.keys(PAGE_TITLES), 'jsonEditor'];
+const TAB_ICONS = {
+  dashboard:'&#8962;', incidentManagement:'&#9888;', nearMiss:'&#128269;', observations:'&#128203;',
+  inspections:'&#9989;', permitToWork:'&#128196;', trainingManagement:'&#127891;', toolboxTalks:'&#128172;',
+  auditCompliance:'&#128737;', riskManagement:'&#9888;', environmental:'&#127811;', objectivesTargets:'&#127919;',
+  kpisPerformance:'&#128202;', actionTracker:'&#9989;', documentManagement:'&#128193;', reports:'&#128196;',
+  settings:'&#9881;', help:'&#10067;', jsonEditor:'&#128221;'
+};
+
+function tabLabel(key){
+  if(data.text.tabLabels[key]) return data.text.tabLabels[key];
+  if(key==='dashboard') return 'Dashboard';
+  if(key==='jsonEditor') return 'Edit JSON';
+  return PAGE_TITLES[key] || key;
+}
+
+function buildTabs(){
+  const bar = document.getElementById('tabsSidebar');
+  bar.innerHTML = '';
+  TAB_KEYS.forEach(key=>{
+    const pill = document.createElement('div');
+    pill.className = 'tab-pill' + (key===currentPage ? ' active' : '');
+    pill.dataset.page = key;
+    const ic = document.createElement('span');
+    ic.className = 'ic';
+    ic.style.width = '18px';
+    ic.style.display = 'inline-block';
+    ic.innerHTML = TAB_ICONS[key] || '&#8226;';
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = tabLabel(key);
+    lbl.setAttribute('spellcheck','false');
+    pill.appendChild(ic);
+    pill.appendChild(lbl);
+    bar.appendChild(pill);
+
+    pill.addEventListener('click', ()=>{ showPage(key); });
+    lbl.addEventListener('dblclick', e=>{
+      if(!editMode) return;
+      e.stopPropagation();
+      lbl.contentEditable = 'true';
+      lbl.focus();
+      document.execCommand('selectAll', false, null);
+    });
+    lbl.addEventListener('click', e=>{ if(lbl.isContentEditable) e.stopPropagation(); });
+    lbl.addEventListener('blur', ()=>{
+      lbl.contentEditable = 'false';
+      data.text.tabLabels[key] = lbl.textContent.trim() || tabLabel(key);
+      save();
+    });
+    lbl.addEventListener('keydown', e=>{
+      if(e.key==='Enter'){ e.preventDefault(); lbl.blur(); }
+    });
+  });
+}
+
+/* ---------- EDITABLE TEXT (title, tagline, brand, banner, footer, chart labels) ---------- */
+const SIMPLE_TEXT_PAIRS = [
+  ['hintText','hint'],
+  ['legend_incident2023','legend_incident2023'],
+  ['legend_incident2024','legend_incident2024'],
+  ['legend_scoreVal','legend_scoreVal'],
+  ['legend_scoreTarget','legend_scoreTarget'],
+  ['editLbl_incident','editLbl_incident'],
+  ['lbl_incident2023','lbl_incident2023'],
+  ['lbl_incident2024','lbl_incident2024'],
+  ['editLbl_score','editLbl_score'],
+  ['lbl_scoreVal','lbl_scoreVal'],
+  ['lbl_scoreTarget','lbl_scoreTarget']
+];
+
+function loadTextIntoDOM(){
+  document.getElementById('titleText').innerHTML = data.text.title;
+  document.getElementById('taglineText').textContent = data.text.tagline;
+  document.getElementById('brandNameText').innerHTML = data.text.brandName;
+  document.getElementById('userName').textContent = data.text.userName;
+  document.getElementById('userRole').textContent = data.text.userRole;
+  document.getElementById('footerText').textContent = data.text.footer;
+  document.querySelectorAll('#bannerRow .t1').forEach(el=>{
+    el.textContent = data.text.banner[+el.dataset.idx].t1;
+  });
+  document.querySelectorAll('#bannerRow .t2').forEach(el=>{
+    el.innerHTML = data.text.banner[+el.dataset.idx].t2;
+  });
+  SIMPLE_TEXT_PAIRS.forEach(([id,key])=>{
+    const el = document.getElementById(id);
+    if(el && data.text[key]!==undefined) el.textContent = data.text[key];
+  });
+}
+
+function wireEditableText(){
+  const bindHTML = (id, key)=>{
+    const el = document.getElementById(id);
+    el.addEventListener('blur', ()=>{ data.text[key] = el.innerHTML.trim(); save(); });
+  };
+  const bindText = (id, key)=>{
+    const el = document.getElementById(id);
+    el.addEventListener('blur', ()=>{ data.text[key] = el.textContent.trim(); save(); });
+  };
+  bindHTML('titleText','title');
+  bindText('taglineText','tagline');
+  bindText('hintText','hint');
+  bindHTML('brandNameText','brandName');
+  bindText('userName','userName');
+  bindText('userRole','userRole');
+  bindText('footerText','footer');
+  SIMPLE_TEXT_PAIRS.forEach(([id,key])=> bindText(id,key));
+  document.querySelectorAll('#bannerRow .t1').forEach(el=>{
+    el.addEventListener('blur', ()=>{ data.text.banner[+el.dataset.idx].t1 = el.textContent.trim(); save(); });
+  });
+  document.querySelectorAll('#bannerRow .t2').forEach(el=>{
+    el.addEventListener('blur', ()=>{ data.text.banner[+el.dataset.idx].t2 = el.innerHTML.trim(); save(); });
+  });
+  document.querySelectorAll('[contenteditable="true"]').forEach(el=>{
+    el.addEventListener('keydown', e=>{
+      if(e.key==='Enter' && el.tagName!=='H1'){ e.preventDefault(); el.blur(); }
+    });
+  });
+}
+
+/* ---------- PAGE SWITCHING / GENERIC EDITABLE PAGES ---------- */
+function showPage(key){
+  currentPage = key;
+  document.querySelectorAll('.tab-pill').forEach(p=>{
+    p.classList.toggle('active', p.dataset.page===key);
+  });
+  const dash = document.getElementById('page-dashboard');
+  const generic = document.getElementById('page-generic');
+  const jsonPage = document.getElementById('page-json');
+  dash.style.display = 'none';
+  generic.style.display = 'none';
+  jsonPage.style.display = 'none';
+
+  if(key==='dashboard'){
+    dash.style.display='';
+  }else if(key==='jsonEditor'){
+    jsonPage.style.display='';
+    refreshJsonTextarea();
+    renderSnapshotsList();
+    applyEditMode();
+  }else{
+    generic.style.display='';
+    document.getElementById('genericTitle').textContent = tabLabel(key);
+    renderGenericPage(key);
+  }
+}
+
+/* ---------- EDIT JSON PAGE ---------- */
+function refreshJsonTextarea(){
+  document.getElementById('jsonTextarea').value = JSON.stringify(data, null, 2);
+}
+function flashSave3(){
+  const n = document.getElementById('saveNote3');
+  if(!n) return;
+  n.style.opacity = 1;
+  clearTimeout(window._st3);
+  window._st3 = setTimeout(()=>{ n.style.opacity = 0; }, 1200);
+}
+function applyJsonTextarea(){
+  if(!editMode) return;
+  const raw = document.getElementById('jsonTextarea').value;
+  let parsed;
+  try{
+    parsed = JSON.parse(raw);
+  }catch(e){
+    alert('That is not valid JSON:\n' + e.message);
+    return;
+  }
+  data = parsed;
+  save();
+  renderAll();
+  refreshJsonTextarea();
+  flashSave3();
+}
+function copyJsonTextarea(){
+  const ta = document.getElementById('jsonTextarea');
+  const text = ta.value;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>{
+      flashSave3();
+    }).catch(()=>{
+      ta.select(); document.execCommand('copy'); flashSave3();
+    });
+  }else{
+    ta.select(); document.execCommand('copy'); flashSave3();
+  }
+}
+
+
+function flashSave2(){
+  const n = document.getElementById('saveNote2');
+  if(!n) return;
+  n.style.opacity = 1;
+  clearTimeout(window._st2);
+  window._st2 = setTimeout(()=>{ n.style.opacity = 0; }, 900);
+}
+
+function renderGenericPage(key){
+  const pageData = data.pages[key];
+  const table = document.getElementById('genericTable');
+  if(!pageData){ table.innerHTML = ''; return; }
+  let html = '<tr>' + pageData.columns.map(c=>`<th style="text-align:left;">${c}</th>`).join('') + '<th></th></tr>';
+  pageData.rows.forEach((row,r)=>{
+    html += '<tr>';
+    row.forEach((cell,c)=>{
+      html += `<td style="padding:4px;"><input type="text" value="${(cell+'').replace(/"/g,'&quot;')}" data-r="${r}" data-c="${c}" style="width:100%;border:1px solid var(--border);border-radius:5px;padding:5px 7px;font-size:12px;"></td>`;
+    });
+    html += `<td style="padding:4px;"><button data-r="${r}" class="delRowBtn" title="Delete row" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:14px;">&#10006;</button></td></tr>`;
+  });
+  table.innerHTML = html;
+  table.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const r = +e.target.dataset.r, c = +e.target.dataset.c;
+      data.pages[key].rows[r][c] = e.target.value;
+      save(); flashSave2();
+    });
+  });
+  table.querySelectorAll('.delRowBtn').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const r = +e.target.dataset.r;
+      data.pages[key].rows.splice(r,1);
+      save(); renderGenericPage(key);
+    });
+  });
+  applyEditMode();
+}
+function addGenericRow(){
+  const pageData = data.pages[currentPage];
+  if(!pageData) return;
+  pageData.rows.push(pageData.columns.map(()=>''));
+  save();
+  renderGenericPage(currentPage);
+}
+
+function renderAll(){
+  loadTextIntoDOM();
+  buildTabs();
+  renderKpis();
+  renderIncidentTrend();
+  renderInspectionTrend();
+  renderDonutsAndBars();
+  renderBars();
+  renderRiskMatrix();
+  renderEnv();
+  renderFilters();
+  applyEditMode();
+  renderValidationWarnings();
+}
+
+try{ editMode = sessionStorage.getItem(SESSION_UNLOCK_KEY)==='1'; }catch(e){ editMode = false; }
+renderLockBadge();
+renderAll();
+wireEditableText();
+wireFilters();
+</script>
+</body>
+</html>
