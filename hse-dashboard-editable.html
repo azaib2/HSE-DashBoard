@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Complete HSE Dashboard (Editable)</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg:#eef1f0; --card:#ffffff; --text:#111827; --sub:#6b7280; --border:#e5e7eb;
@@ -68,6 +69,33 @@
   .lock-badge .btn-unlock{background:linear-gradient(90deg,#2fb548,#7fe08f);color:#062a0d;width:100%;}
   .lock-badge .btn-lock{background:rgba(255,255,255,.14);color:#e7f4ea;}
   .lock-badge .btn-pw{background:none;color:#9fd6a8;text-decoration:underline;padding:6px 2px;}
+
+  .cloud-status{
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+    font-size:10.5px;font-weight:700;color:#a9c4af;
+    padding:0 2px 8px;
+  }
+  .cloud-status .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  .cloud-status.synced .dot{background:#4ade80;}
+  .cloud-status.syncing .dot{background:#f5b400;}
+  .cloud-status.offline .dot{background:#9ca3af;}
+  .cloud-status.error .dot{background:#ef4444;}
+  .cloud-status.unconfigured .dot{background:#6b7280;}
+  .cloud-status button{
+    border:none;background:rgba(255,255,255,.12);color:#e7f4ea;border-radius:6px;
+    padding:3px 7px;font-size:9.5px;font-weight:700;cursor:pointer;
+  }
+
+  .pending-update-banner{
+    display:none;align-items:center;justify-content:space-between;gap:10px;
+    background:#eef4ff;border:1px solid #bcd4ff;color:#1e3a8a;
+    border-radius:9px;padding:8px 14px;font-size:12px;margin-bottom:12px;
+  }
+  .pending-update-banner button{
+    background:linear-gradient(90deg,#0d4d18,#1b8a2f);color:#fff;border:none;
+    border-radius:7px;padding:6px 12px;font-size:11.5px;font-weight:700;cursor:pointer;flex-shrink:0;
+  }
+
 
   [contenteditable="true"]{cursor:text;border-radius:4px;}
   [contenteditable="true"]:hover{outline:1px dashed #9ca3af;}
@@ -147,8 +175,9 @@
   .env-list{list-style:none;margin:0;padding:0;}
   .env-list li{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f2f2f3;font-size:11.5px;gap:6px;}
   .env-list li:last-child{border-bottom:none;}
-  .env-list .left{display:flex;align-items:center;gap:6px;color:#374151;flex:1;}
-  .env-list input.valin{width:66px;border:1px solid var(--border);border-radius:5px;font-size:11px;padding:2px 4px;text-align:right;}
+  .env-list .left{display:flex;align-items:center;gap:6px;color:#374151;flex:1;min-width:0;}
+  .env-list .left span.label-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .env-list input.valin{width:110px;flex-shrink:0;border:1px solid var(--border);border-radius:5px;font-size:11px;padding:2px 6px;text-align:right;}
   .env-list select.dirsel{font-size:10.5px;border:none;background:transparent;font-weight:700;}
   .env-list input.deltain{width:34px;border:1px solid var(--border);border-radius:5px;font-size:10.5px;padding:2px 3px;text-align:right;}
 
@@ -164,8 +193,28 @@
     .kpi-grid{grid-template-columns:repeat(3,1fr);}
     .grid3{grid-template-columns:1fr;}
     .filters{grid-template-columns:repeat(2,1fr);}
-    .shell{flex-direction:column;}
-    .sidebar{width:100%;}
+  }
+
+  /* Narrow / mobile (e.g. scanning a QR code on a phone): keep the sidebar
+     on the left, just make it slimmer instead of stacking it on top. */
+  @media (max-width:680px){
+    .shell{flex-direction:row;}
+    .sidebar{width:96px;padding:14px 6px 10px;}
+    .brand-badge{width:38px;height:38px;}
+    .brand-name{font-size:8px;letter-spacing:.03em;}
+    .tab-pill{flex-direction:column;gap:2px;padding:8px 2px;text-align:center;}
+    .tab-pill .ic{width:auto;font-size:14px;}
+    .tab-pill .lbl{font-size:8.5px;line-height:1.15;word-break:break-word;}
+    .sidebar-footer{flex-direction:column;text-align:center;gap:4px;}
+    .sidebar-footer .name, .sidebar-footer .role{font-size:9px;}
+    .lock-badge{padding:7px 6px;font-size:10px;}
+    .lock-badge .row{flex-direction:column;}
+    .lock-badge button{font-size:9.5px;padding:5px 6px;}
+    .main{padding:14px 10px 20px;}
+    .header{flex-direction:column;align-items:flex-start;gap:8px;}
+    .header h1{font-size:18px;}
+    .kpi-grid{grid-template-columns:repeat(2,1fr);}
+    .filters{grid-template-columns:1fr;}
   }
 
   /* ---------- PRINT / SAVE AS PDF ---------- */
@@ -201,6 +250,7 @@
       <div class="brand-name" id="brandNameText" contenteditable="true" spellcheck="false">HSE&nbsp;&nbsp;MANAGEMENT SYSTEM</div>
     </div>
     <div id="lockBadge" class="lock-badge"></div>
+    <div id="cloudStatus" class="cloud-status"></div>
     <nav class="tabs-left" id="tabsSidebar"></nav>
     <div class="sidebar-footer">
       <div class="avatar">H</div>
@@ -251,6 +301,11 @@
     </div>
 
     <!-- KPI CARDS -->
+    <div id="pendingUpdateBanner" class="pending-update-banner">
+      <span>&#9729; Someone else updated this dashboard while you were editing.</span>
+      <button onclick="applyPendingCloudUpdate()">Refresh now</button>
+    </div>
+
     <div id="validationWarnings" class="validation-banner" style="display:none;"></div>
 
     <div class="kpi-grid" id="kpiGrid"></div>
@@ -326,7 +381,7 @@
       </div>
 
       <div class="panel">
-        <h3>ENVIRONMENTAL PERFORMANCE</h3>
+        <h3>TIME AND INCIDENT TRACKER</h3>
         <ul class="env-list" id="envList"></ul>
       </div>
 
@@ -407,6 +462,202 @@
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const STORAGE_KEY = 'hse_dashboard_data_v1';
 
+/* ============ CLOUD SYNC (Supabase) ============
+   This lets everyone who opens this file (e.g. via the QR code) see the
+   SAME live data, instead of each device having its own separate copy.
+
+   ONE-TIME SETUP (see the chat for full instructions):
+   1. Create a free project at https://supabase.com
+   2. Run the provided SQL to create the `dashboard_state` table
+   3. Turn on Realtime for that table
+   4. Paste your Project URL and anon public API key below
+   5. Redeploy this file to Netlify
+
+   HONEST SECURITY NOTE: the anon key below is public — anyone who views
+   this page's source can see it. Combined with an open write policy (as
+   in the setup SQL), that means writes aren't protected by Supabase itself
+   — the password lock in this app is what stops casual editing, the same
+   as everywhere else in this dashboard. Don't put highly sensitive data
+   in this table. If you need real per-user access control later, that
+   needs Supabase Auth, which is a bigger upgrade.
+*/
+const SUPABASE_URL = 'https://werwawqqrsnrijppqarh.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_sN7IbcOwz34Hc0S4r6JWYg_B2widL7y';
+const CLOUD_TABLE = 'dashboard_state';
+const CLOUD_ROW_ID = 'main';
+
+let supabaseClient = null;
+let cloudEnabled = false;
+let cloudChannel = null;
+let pushTimer = null;
+let pendingRemote = null;
+let localEditingActive = false;
+let lastPushedJson = null;
+let localHasUnsyncedChanges = false; // true from the moment of any local edit until it's confirmed pushed
+
+function isCloudConfigured(){
+  return SUPABASE_URL && SUPABASE_ANON_KEY &&
+    SUPABASE_URL.indexOf('YOUR_SUPABASE_URL')===-1 &&
+    SUPABASE_ANON_KEY.indexOf('YOUR_SUPABASE_ANON_KEY')===-1;
+}
+
+function setCloudStatus(state, extra){
+  const el = document.getElementById('cloudStatus');
+  if(!el) return;
+  el.className = 'cloud-status ' + state;
+  const labels = {
+    unconfigured: '&#9679; Cloud sync not set up',
+    offline: '&#9679; Local only (no connection)',
+    syncing: '&#9679; Syncing&hellip;',
+    synced: '&#9679; Live &mdash; synced',
+    error: '&#9679; Sync error'
+  };
+  const showSyncBtn = cloudEnabled;
+  el.innerHTML = `<span class="dot"></span> ${labels[state] || state} ${extra||''}` +
+    (showSyncBtn ? ` <button onclick="pullFromCloud(false)">Sync now</button>` : '');
+}
+
+async function initCloud(){
+  if(!isCloudConfigured()){
+    setCloudStatus('unconfigured');
+    return;
+  }
+  if(typeof window.supabase === 'undefined'){
+    setCloudStatus('error', '(library failed to load)');
+    return;
+  }
+  try{
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    cloudEnabled = true;
+    await pullFromCloud(true);
+    subscribeRealtime();
+    // Safety-net poll in case the realtime socket drops
+    setInterval(()=>{ if(!localEditingActive) pullFromCloud(false); }, 20000);
+  }catch(e){
+    cloudEnabled = false;
+    setCloudStatus('error', '(' + (e && e.message ? e.message : 'unknown error') + ')');
+  }
+}
+
+async function pullFromCloud(isInitialLoad){
+  if(!cloudEnabled) return false;
+  setCloudStatus('syncing');
+  try{
+    const { data: rows, error } = await supabaseClient
+      .from(CLOUD_TABLE)
+      .select('data,updated_at')
+      .eq('id', CLOUD_ROW_ID)
+      .maybeSingle();
+    if(error) throw error;
+    if(rows && rows.data){
+      const incomingJson = JSON.stringify(rows.data);
+      if(incomingJson !== lastPushedJson){
+        applyIncomingCloudData(rows.data, isInitialLoad);
+      }
+      lastPushedJson = incomingJson;
+    }else if(isInitialLoad){
+      // Table is empty — seed it with whatever we have locally right now
+      pushToCloud();
+    }
+    setCloudStatus('synced');
+    return true;
+  }catch(e){
+    setCloudStatus('error', '(' + (e && e.message ? e.message : 'unknown error') + ')');
+    return false;
+  }
+}
+
+function applyIncomingCloudData(remoteData, isInitialLoad){
+  // Protect local work: if the person has made any change that hasn't been
+  // confirmed pushed yet (or is actively typing right now), never silently
+  // clobber it — even if this happens to be the initial page-load fetch
+  // landing late. Queue it and let them choose via the "Refresh now" banner.
+  if(localEditingActive || localHasUnsyncedChanges){
+    pendingRemote = remoteData;
+    showPendingBanner();
+    return;
+  }
+  data = mergeWithFresh(remoteData);
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+  renderAll();
+  if(currentPage==='jsonEditor') refreshJsonTextarea();
+  if(currentPage!=='dashboard' && currentPage!=='jsonEditor') renderGenericPage(currentPage);
+}
+
+function showPendingBanner(){
+  const b = document.getElementById('pendingUpdateBanner');
+  if(b) b.style.display = 'flex';
+}
+function applyPendingCloudUpdate(){
+  if(!pendingRemote) return;
+  applyIncomingCloudData(pendingRemote, true);
+  pendingRemote = null;
+  document.getElementById('pendingUpdateBanner').style.display = 'none';
+}
+
+function schedulePush(){
+  if(!cloudEnabled) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushToCloud, 700);
+}
+async function pushToCloud(){
+  if(!cloudEnabled) return;
+  setCloudStatus('syncing');
+  const snapshotAtPushTime = JSON.stringify(data);
+  try{
+    lastPushedJson = snapshotAtPushTime;
+    const { error } = await supabaseClient
+      .from(CLOUD_TABLE)
+      .upsert({ id: CLOUD_ROW_ID, data: data, updated_at: new Date().toISOString() });
+    if(error) throw error;
+    // Only clear the dirty flag if nothing changed locally while this push was in flight
+    if(JSON.stringify(data) === snapshotAtPushTime){
+      localHasUnsyncedChanges = false;
+    }
+    setCloudStatus('synced');
+  }catch(e){
+    setCloudStatus('error', '(' + (e && e.message ? e.message : 'unknown error') + ')');
+  }
+}
+
+function subscribeRealtime(){
+  if(!cloudEnabled) return;
+  cloudChannel = supabaseClient
+    .channel('dashboard-changes')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: CLOUD_TABLE, filter: `id=eq.${CLOUD_ROW_ID}` },
+      payload => {
+        const incoming = payload.new && payload.new.data;
+        if(!incoming) return;
+        const incomingJson = JSON.stringify(incoming);
+        if(incomingJson === lastPushedJson) return; // our own write echoing back
+        applyIncomingCloudData(incoming, false);
+        lastPushedJson = incomingJson;
+      })
+    .subscribe();
+}
+
+// Track whether the person is actively typing, so a live update from
+// someone else never yanks focus or overwrites a field mid-edit.
+document.addEventListener('focusin', e=>{
+  if(e.target.matches && e.target.matches('input, select, textarea, [contenteditable="true"]')){
+    localEditingActive = true;
+  }
+});
+document.addEventListener('focusout', e=>{
+  if(e.target.matches && e.target.matches('input, select, textarea, [contenteditable="true"]')){
+    setTimeout(()=>{
+      const active = document.activeElement;
+      localEditingActive = !!(active && active.matches && active.matches('input, select, textarea, [contenteditable="true"]'));
+      if(!localEditingActive && pendingRemote){
+        showPendingBanner();
+      }
+    }, 50);
+  }
+});
+
+
+
 /* ============ EDIT-LOCK SECURITY ============
    This is client-side only: it hides/disables editing controls from casual
    viewers behind a password. Anyone with browser dev-tools could bypass it,
@@ -481,9 +732,10 @@ function renderLockBadge(){
       <button class="btn-unlock" onclick="tryUnlock()">Unlock editing</button>`;
   }
 }
+const ALWAYS_ENABLED_IDS = ['f_year','f_month','f_dept','f_loc'];
 function applyEditMode(){
   document.querySelectorAll('.main input, .main select, .main textarea').forEach(el=>{
-    if(el.id==='importFile') return;
+    if(el.id==='importFile' || ALWAYS_ENABLED_IDS.includes(el.id)) return;
     el.disabled = !editMode;
   });
   document.querySelectorAll('.computed-kpi').forEach(el=>{ el.disabled = true; }); // never user-editable
@@ -497,25 +749,25 @@ function applyEditMode(){
 /* ---------- VALIDATION WARNINGS ---------- */
 function runValidation(){
   const warnings = [];
-  data.kpis.forEach(k=>{
+  activePeriod().kpis.forEach(k=>{
     if(k.suffix==='%'){
       const v = parseFloat(k.value)||0;
       if(v>100) warnings.push(`"${k.label}" is ${v}% — above 100%.`);
       if(v<0) warnings.push(`"${k.label}" is ${v}% — below 0%.`);
     }
   });
-  data.environmental.forEach(it=>{
+  activePeriod().environmental.forEach(it=>{
     if(/%/.test(it.label)){
       const v = parseFloat(it.value)||0;
       if(v>100) warnings.push(`"${it.label}" is ${v} — above 100%.`);
       if(v<0) warnings.push(`"${it.label}" is ${v} — below 0%.`);
     }
   });
-  const scoreVals = data.scoreVal.filter(v=>v!==''&&v!==undefined).map(v=>parseFloat(v));
-  const targetVals = data.scoreTarget.filter(v=>v!==''&&v!==undefined).map(v=>parseFloat(v));
+  const scoreVals = activePeriod().scoreVal.filter(v=>v!==''&&v!==undefined).map(v=>parseFloat(v));
+  const targetVals = activePeriod().scoreTarget.filter(v=>v!==''&&v!==undefined).map(v=>parseFloat(v));
   if(scoreVals.some(v=>v>100||v<0)) warnings.push('Inspection Score Trend has a monthly value outside 0–100%.');
   if(targetVals.some(v=>v>100||v<0)) warnings.push('Inspection Score Trend has a target value outside 0–100%.');
-  const trTotal = (parseFloat(data.training.completed)||0) + (parseFloat(data.training.pending)||0);
+  const trTotal = (parseFloat(activePeriod().training.completed)||0) + (parseFloat(activePeriod().training.pending)||0);
   if(Math.round(trTotal) !== 100){
     warnings.push(`Training Completion: Completed + Pending = ${trTotal}%, expected 100%.`);
   }
@@ -535,62 +787,113 @@ function renderValidationWarnings(){
     <ul>${warnings.map(w=>`<li>${w}</li>`).join('')}</ul>`;
 }
 
-function sampleData(){
+// Shape used for every period (one per Year+Month+Department+Location combo).
+// Kept as a function so each blank period gets its own fresh arrays/objects.
+function blankPeriod(){
   return {
     kpis: [
-      {icon:'&#128101;', color:'#1f4fd8', label:'Total Incidents', value:12, delta:20, dir:'down', computed:'incidentByType'},
-      {icon:'&#9888;', color:'#f2711c', label:'Near Miss', value:5, delta:28, dir:'down'},
-      {icon:'&#128203;', color:'#1b8a2f', label:'Inspection Score', value:98, suffix:'%', delta:8, dir:'up'},
-      {icon:'&#127891;', color:'#6f2bd6', label:'Training Completion', value:92, suffix:'%', delta:6, dir:'up'},
-      {icon:'&#127811;', color:'#1b8a2f', label:'Environmental Compliance', value:100, suffix:'%', delta:5, dir:'up'},
-      {icon:'&#128737;', color:'#1f4fd8', label:'Open Actions', value:15, delta:12, dir:'down', computed:'actionsOpen'}
+      {icon:'&#128101;', color:'#1f4fd8', label:'Total Incidents', value:0, delta:0, dir:'down', computed:'incidentByType'},
+      {icon:'&#9888;', color:'#f2711c', label:'Near Miss', value:0, delta:0, dir:'down'},
+      {icon:'&#128203;', color:'#1b8a2f', label:'Inspection Score', value:0, suffix:'%', delta:0, dir:'up'},
+      {icon:'&#127891;', color:'#6f2bd6', label:'Training Completion', value:0, suffix:'%', delta:0, dir:'up'},
+      {icon:'&#127811;', color:'#1b8a2f', label:'Environmental Compliance', value:0, suffix:'%', delta:0, dir:'up'},
+      {icon:'&#128737;', color:'#1f4fd8', label:'Open Actions', value:0, delta:0, dir:'down', computed:'actionsOpen'}
     ],
-    incidentTrend2023: [3,6,8,9,12,18,20,25,19,19,15,10],
-    incidentTrend2024: [8,7,10,12,14,13,'','','','','',''],
+    incidentTrend2023: [0,0,0,0,0,0,0,0,0,0,0,0],
+    incidentTrend2024: ['','','','','','','','','','','',''],
     incidentByType: [
-      {label:'Medical Treatment', value:4, color:'#1f4fd8'},
-      {label:'First Aid', value:3, color:'#1b8a2f'},
-      {label:'Restricted Work', value:2, color:'#f2711c'},
-      {label:'Lost Time Injury', value:2, color:'#e02424'},
-      {label:'Property Damage', value:1, color:'#6f2bd6'}
+      {label:'Medical Treatment', value:0, color:'#1f4fd8'},
+      {label:'First Aid', value:0, color:'#1b8a2f'},
+      {label:'Restricted Work', value:0, color:'#f2711c'},
+      {label:'Lost Time Injury', value:0, color:'#e02424'},
+      {label:'Property Damage', value:0, color:'#6f2bd6'}
     ],
     locations: [
-      {label:'Plant Area 1', value:5},
-      {label:'Warehouse', value:3},
-      {label:'Construction Site', value:2},
-      {label:'Office', value:1},
-      {label:'Workshop', value:1}
+      {label:'Plant Area 1', value:0},
+      {label:'Warehouse', value:0},
+      {label:'Construction Site', value:0},
+      {label:'Office', value:0},
+      {label:'Workshop', value:0}
     ],
-    scoreVal: [80,78,82,79,83,81,84,82,83,85,86,84],
-    scoreTarget: [90,90,90,90,90,90,90,90,90,90,90,90],
-    training: {completed:92, pending:8},
+    scoreVal: [0,0,0,0,0,0,0,0,0,0,0,0],
+    scoreTarget: [0,0,0,0,0,0,0,0,0,0,0,0],
+    training: {completed:0, pending:0},
     actions: [
-      {label:'Open', value:15, color:'#e02424'},
-      {label:'In Progress', value:10, color:'#f2711c'},
-      {label:'Due Soon', value:6, color:'#f5b400'},
-      {label:'Closed', value:4, color:'#1b8a2f'}
+      {label:'Open', value:0, color:'#e02424'},
+      {label:'In Progress', value:0, color:'#f2711c'},
+      {label:'Due Soon', value:0, color:'#f5b400'},
+      {label:'Closed', value:0, color:'#1b8a2f'}
     ],
     riskMatrix: [
-      [5,10,15,20,25],
-      [4,8,12,16,20],
-      [3,6,9,12,15],
-      [2,4,6,8,10],
-      [1,2,3,4,5]
+      [0,0,0,0,0],
+      [0,0,0,0,0],
+      [0,0,0,0,0],
+      [0,0,0,0,0],
+      [0,0,0,0,0]
     ],
     environmental: [
-      {icon:'&#128465;', label:'Waste Generated (kg)', value:12450, delta:8, dir:'down'},
-      {icon:'&#9851;', label:'Recycled Rate (%)', value:78, delta:5, dir:'up'},
-      {icon:'&#9889;', label:'Energy Consumption (kWh)', value:245600, delta:5, dir:'down'},
-      {icon:'&#128167;', label:'Water Consumption (m&sup3;)', value:3850, delta:7, dir:'down'},
-      {icon:'&#9981;', label:'Fuel Consumption (L)', value:18600, delta:4, dir:'down'}
+      {icon:'&#128202;', label:'TRIR', value:0, delta:0, dir:'down'},
+      {icon:'&#9201;', label:'LTIFR', value:0, delta:0, dir:'down'},
+      {icon:'&#128201;', label:'LTIIR', value:0, delta:0, dir:'down'},
+      {icon:'&#128295;', label:'Equipment Breakdown', value:0, delta:0, dir:'up'},
+      {icon:'&#128176;', label:'Penalties', value:0, delta:0, dir:'down'},
+      {icon:'&#9200;', label:'Total Man Hours', value:0, delta:0, dir:'up'},
+      {icon:'&#128337;', label:'Man Hours This Week', value:0, delta:0, dir:'up'}
     ],
-    compliance: {compliant:50, nonCompliant:1},
+    compliance: {compliant:0, nonCompliant:0}
+  };
+}
+function defaultSeededPeriod(){
+  // The one period that ships with real example numbers, so the dashboard
+  // isn't blank on first use. Every other Year/Month/Dept/Location combo
+  // starts as a clean blankPeriod() until someone enters data for it.
+  const p = blankPeriod();
+  p.kpis[0].value = 12; p.kpis[0].delta = 20;
+  p.kpis[1].value = 5;  p.kpis[1].delta = 28;
+  p.kpis[2].value = 98; p.kpis[2].delta = 8;
+  p.kpis[3].value = 92; p.kpis[3].delta = 6;
+  p.kpis[4].value = 100;p.kpis[4].delta = 5;
+  p.kpis[5].value = 15; p.kpis[5].delta = 12;
+  p.incidentTrend2023 = [3,6,8,9,12,18,20,25,19,19,15,10];
+  p.incidentTrend2024 = [8,7,10,12,14,13,'','','','','',''];
+  p.incidentByType[0].value = 4; p.incidentByType[1].value = 3; p.incidentByType[2].value = 2;
+  p.incidentByType[3].value = 2; p.incidentByType[4].value = 1;
+  p.locations[0].value = 5; p.locations[1].value = 3; p.locations[2].value = 2;
+  p.locations[3].value = 1; p.locations[4].value = 1;
+  p.scoreVal = [80,78,82,79,83,81,84,82,83,85,86,84];
+  p.scoreTarget = [90,90,90,90,90,90,90,90,90,90,90,90];
+  p.training = {completed:92, pending:8};
+  p.actions[0].value = 15; p.actions[1].value = 10; p.actions[2].value = 6; p.actions[3].value = 4;
+  p.riskMatrix = [
+    [5,10,15,20,25],
+    [4,8,12,16,20],
+    [3,6,9,12,15],
+    [2,4,6,8,10],
+    [1,2,3,4,5]
+  ];
+  p.environmental[0].value = 1.2; p.environmental[1].value = 0.8; p.environmental[2].value = 0.5;
+  p.environmental[3].value = 3;   p.environmental[3].delta = 10;  p.environmental[3].dir = 'up';
+  p.environmental[4].value = 0;
+  p.environmental[5].value = 0;   p.environmental[6].value = 0;
+  p.compliance = {compliant:50, nonCompliant:1};
+  return p;
+}
+const DEFAULT_FILTER_SELECTED = { year:'2024', month:'May', department:'All', location:'All' };
+function periodKey(sel){
+  sel = sel || DEFAULT_FILTER_SELECTED;
+  return [sel.year, sel.month, sel.department, sel.location].join('|');
+}
+
+function sampleData(){
+  return {
+    periods: {
+      [periodKey(DEFAULT_FILTER_SELECTED)]: defaultSeededPeriod()
+    },
     filterOptions: {
       years: ['2023','2024','2025','2026'],
       departments: ['All','Operations','Maintenance','Warehouse','Construction'],
       locations: ['All','Plant Area 1','Warehouse','Construction Site','Office','Workshop']
     },
-    filterSelected: { year:'2024', month:'May', department:'All', location:'All' },
     text: {
       title: 'COMPLETE <span class="accent">HSE</span> DASHBOARD',
       tagline: 'HEALTH. SAFETY. ENVIRONMENT. EXCELLENCE.',
@@ -758,29 +1061,102 @@ let currentPage = 'dashboard';
 
 let data = load();
 
-function load(){
+const FILTER_STORAGE_KEY = 'hse_dashboard_filter_selection_v1';
+function loadFilterSelected(){
+  try{
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+    if(raw) return Object.assign({}, DEFAULT_FILTER_SELECTED, JSON.parse(raw));
+  }catch(e){}
+  return Object.assign({}, DEFAULT_FILTER_SELECTED);
+}
+function saveFilterSelected(){
+  try{ localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filterSelected)); }catch(e){}
+}
+// filterSelected is intentionally LOCAL to this browser/device, not part of
+// `data` and never pushed to the cloud — so each viewer can browse whichever
+// Year/Month/Department/Location they want without changing what anyone
+// else is looking at. Only the underlying period DATA is shared/synced.
+let filterSelected = loadFilterSelected();
+
+function ensurePeriod(key){
+  if(!data.periods[key]) data.periods[key] = blankPeriod();
+  return data.periods[key];
+}
+function activePeriod(){
+  return ensurePeriod(periodKey(filterSelected));
+}
+
+function mergePeriodWithTemplate(savedPeriod){
+  const blank = blankPeriod();
+  if(!savedPeriod) return blank;
+  return Object.assign({}, blank, savedPeriod, {
+    kpis: (savedPeriod.kpis && savedPeriod.kpis.length===blank.kpis.length) ? savedPeriod.kpis : blank.kpis,
+    incidentByType: savedPeriod.incidentByType || blank.incidentByType,
+    locations: savedPeriod.locations || blank.locations,
+    training: Object.assign({}, blank.training, savedPeriod.training||{}),
+    actions: savedPeriod.actions || blank.actions,
+    riskMatrix: savedPeriod.riskMatrix || blank.riskMatrix,
+    // Merge by label so older saved periods automatically pick up newly
+    // added rows (like "Total Man Hours") without losing existing values.
+    environmental: blank.environmental.map(blankItem=>{
+      const existing = (savedPeriod.environmental||[]).find(x=>x.label===blankItem.label);
+      return existing ? Object.assign({}, blankItem, existing) : blankItem;
+    }).concat(
+      (savedPeriod.environmental||[]).filter(x=>!blank.environmental.some(b=>b.label===x.label))
+    ),
+    compliance: Object.assign({}, blank.compliance, savedPeriod.compliance||{})
+  });
+}
+
+function migrateOldFlatFormat(saved){
+  // Pre-"multi period" saves stored kpis/incidentTrend2023/etc. at the top
+  // level instead of inside data.periods{}. Wrap that into a single period
+  // so nobody loses their existing numbers when this update ships.
+  if(!saved || saved.periods || !saved.kpis) return saved;
+  const key = periodKey(saved.filterSelected);
+  const period = {
+    kpis: saved.kpis, incidentTrend2023: saved.incidentTrend2023, incidentTrend2024: saved.incidentTrend2024,
+    incidentByType: saved.incidentByType, locations: saved.locations,
+    scoreVal: saved.scoreVal, scoreTarget: saved.scoreTarget,
+    training: saved.training, actions: saved.actions, riskMatrix: saved.riskMatrix,
+    environmental: saved.environmental, compliance: saved.compliance
+  };
+  return {
+    periods: { [key]: period },
+    pages: saved.pages, text: saved.text, filterOptions: saved.filterOptions
+  };
+}
+
+function mergeWithFresh(saved){
   const fresh = sampleData();
+  saved = migrateOldFlatFormat(saved);
+  if(!saved) return fresh;
+  const mergedPeriods = Object.assign({}, fresh.periods);
+  Object.keys(saved.periods || {}).forEach(key=>{
+    mergedPeriods[key] = mergePeriodWithTemplate(saved.periods[key]);
+  });
+  return {
+    periods: mergedPeriods,
+    pages: Object.assign({}, fresh.pages, saved.pages||{}),
+    text: Object.assign({}, fresh.text, saved.text||{}, {
+      banner: (saved.text && saved.text.banner) ? saved.text.banner : fresh.text.banner,
+      tabLabels: Object.assign({}, fresh.text.tabLabels, (saved.text && saved.text.tabLabels)||{})
+    }),
+    filterOptions: Object.assign({}, fresh.filterOptions, saved.filterOptions||{})
+  };
+}
+function load(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const saved = JSON.parse(raw);
-      // merge so older saved data still gets new fields like "pages", "text", "filterOptions"
-      return Object.assign({}, fresh, saved, {
-        pages: Object.assign({}, fresh.pages, saved.pages||{}),
-        text: Object.assign({}, fresh.text, saved.text||{}, {
-          banner: (saved.text && saved.text.banner) ? saved.text.banner : fresh.text.banner,
-          tabLabels: Object.assign({}, fresh.text.tabLabels, (saved.text && saved.text.tabLabels)||{})
-        }),
-        filterOptions: Object.assign({}, fresh.filterOptions, saved.filterOptions||{}),
-        filterSelected: Object.assign({}, fresh.filterSelected, saved.filterSelected||{})
-      });
-    }
+    if(raw) return mergeWithFresh(JSON.parse(raw));
   }catch(e){}
-  return fresh;
+  return sampleData();
 }
 function save(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+  localHasUnsyncedChanges = true;
   flashSave();
+  schedulePush();
 }
 function flashSave(){
   const n = document.getElementById('saveNote');
@@ -792,36 +1168,35 @@ function resetData(){
   if(confirm('Reset all values back to the sample data? This clears your edits.')){
     pushSnapshot('Before Reset Sample Data');
     data = sampleData();
+    filterSelected = Object.assign({}, DEFAULT_FILTER_SELECTED);
+    saveFilterSelected();
     save();
     renderAll();
   }
 }
 function resetToZero(){
   if(!editMode){ alert('Unlock editing first to use Refresh Data.'); return; }
-  if(!confirm('This sets every number on the dashboard to 0 and clears every row on every tab. This cannot be undone. Continue?')) return;
+  const label = `${filterSelected.year} / ${filterSelected.month} / ${filterSelected.department} / ${filterSelected.location}`;
+  if(!confirm(`This sets every number on the dashboard to 0 for the currently selected period (${label}) only. Other periods and the tab tables (Incident Management, Near Miss, etc.) are not affected. This cannot be undone. Continue?`)) return;
 
   pushSnapshot('Before Refresh Data reset');
-  data.kpis.forEach(k=>{ k.value = 0; k.delta = 0; });
-  data.incidentTrend2023 = data.incidentTrend2023.map(()=>0);
-  data.incidentTrend2024 = data.incidentTrend2024.map(()=>0);
-  data.incidentByType.forEach(x=>{ x.value = 0; });
-  data.locations.forEach(x=>{ x.value = 0; });
-  data.scoreVal = data.scoreVal.map(()=>0);
-  data.scoreTarget = data.scoreTarget.map(()=>0);
-  data.training.completed = 0;
-  data.training.pending = 0;
-  data.actions.forEach(x=>{ x.value = 0; });
-  data.riskMatrix = data.riskMatrix.map(row=>row.map(()=>0));
-  data.environmental.forEach(x=>{ x.value = 0; x.delta = 0; });
-  data.compliance.compliant = 0;
-  data.compliance.nonCompliant = 0;
-  Object.keys(data.pages).forEach(k=>{ data.pages[k].rows = []; });
+  activePeriod().kpis.forEach(k=>{ k.value = 0; k.delta = 0; });
+  activePeriod().incidentTrend2023 = activePeriod().incidentTrend2023.map(()=>0);
+  activePeriod().incidentTrend2024 = activePeriod().incidentTrend2024.map(()=>0);
+  activePeriod().incidentByType.forEach(x=>{ x.value = 0; });
+  activePeriod().locations.forEach(x=>{ x.value = 0; });
+  activePeriod().scoreVal = activePeriod().scoreVal.map(()=>0);
+  activePeriod().scoreTarget = activePeriod().scoreTarget.map(()=>0);
+  activePeriod().training.completed = 0;
+  activePeriod().training.pending = 0;
+  activePeriod().actions.forEach(x=>{ x.value = 0; });
+  activePeriod().riskMatrix = activePeriod().riskMatrix.map(row=>row.map(()=>0));
+  activePeriod().environmental.forEach(x=>{ x.value = 0; x.delta = 0; });
+  activePeriod().compliance.compliant = 0;
+  activePeriod().compliance.nonCompliant = 0;
 
   save();
   renderAll();
-  if(currentPage !== 'dashboard' && currentPage !== 'jsonEditor'){
-    renderGenericPage(currentPage);
-  }
   if(currentPage === 'jsonEditor'){
     refreshJsonTextarea();
   }
@@ -852,7 +1227,7 @@ function restoreSnapshot(idx){
   if(!snap) return;
   if(!confirm(`Restore the snapshot from ${new Date(snap.ts).toLocaleString()}? This replaces everything currently on the dashboard.`)) return;
   try{
-    data = JSON.parse(snap.json);
+    data = mergeWithFresh(JSON.parse(snap.json));
   }catch(e){
     alert('That snapshot is corrupted and could not be restored.');
     return;
@@ -894,7 +1269,7 @@ function importData(evt){
   reader.onload = e=>{
     try{
       pushSnapshot('Before Import');
-      data = JSON.parse(e.target.result);
+      data = mergeWithFresh(JSON.parse(e.target.result));
       save();
       renderAll();
       renderSnapshotsList();
@@ -929,13 +1304,13 @@ function riskColor(v){
 
 /* ---------- KPI CARDS ---------- */
 function syncComputedKpis(){
-  data.kpis.forEach(k=>{
+  activePeriod().kpis.forEach(k=>{
     if(k.computed==='incidentByType'){
-      k.value = data.incidentByType.reduce((s,x)=>s+(parseFloat(x.value)||0),0);
+      k.value = activePeriod().incidentByType.reduce((s,x)=>s+(parseFloat(x.value)||0),0);
     }else if(k.computed==='actionsOpen'){
       // "Open Actions" mirrors just the Open-status count (first row of Actions by Status),
       // not the sum of every status — matches the original dashboard's meaning.
-      const openItem = data.actions.find(x=>x.label==='Open') || data.actions[0];
+      const openItem = activePeriod().actions.find(x=>x.label==='Open') || activePeriod().actions[0];
       k.value = openItem ? (parseFloat(openItem.value)||0) : 0;
     }
   });
@@ -945,7 +1320,7 @@ function renderKpis(){
   syncComputedKpis();
   const grid = document.getElementById('kpiGrid');
   grid.innerHTML = '';
-  data.kpis.forEach((k,i)=>{
+  activePeriod().kpis.forEach((k,i)=>{
     const card = document.createElement('div');
     card.className = 'kpi-card';
     const isComputed = !!k.computed;
@@ -981,10 +1356,10 @@ function renderKpis(){
 }
 function kpiFieldChanged(e){
   const i = +e.target.dataset.i, f = e.target.dataset.f;
-  if(f==='value' && data.kpis[i].computed) return; // computed fields aren't user-editable
-  data.kpis[i][f] = (f==='value'||f==='delta') ? parseFloat(e.target.value)||0 : e.target.value;
+  if(f==='value' && activePeriod().kpis[i].computed) return; // computed fields aren't user-editable
+  activePeriod().kpis[i][f] = (f==='value'||f==='delta') ? parseFloat(e.target.value)||0 : e.target.value;
   const row = document.getElementById('kpiDeltaRow'+i);
-  row.className = 'kpi-delta-row ' + (data.kpis[i].dir==='up' ? 'up-color':'down-color');
+  row.className = 'kpi-delta-row ' + (activePeriod().kpis[i].dir==='up' ? 'up-color':'down-color');
   save();
   renderValidationWarnings();
 }
@@ -1045,14 +1420,14 @@ function drawDualLine(svgId, seriesA, seriesB, colorA, colorB, maxVal, showBarsF
 }
 
 function renderIncidentTrend(){
-  drawDualLine('incidentTrendSvg', data.incidentTrend2023, data.incidentTrend2024, '#1f4fd8', '#1b8a2f', 30, false);
-  buildMonthGrid('grid_incident2023', data.incidentTrend2023, renderIncidentTrend);
-  buildMonthGrid('grid_incident2024', data.incidentTrend2024, renderIncidentTrend);
+  drawDualLine('incidentTrendSvg', activePeriod().incidentTrend2023, activePeriod().incidentTrend2024, '#1f4fd8', '#1b8a2f', 30, false);
+  buildMonthGrid('grid_incident2023', activePeriod().incidentTrend2023, renderIncidentTrend);
+  buildMonthGrid('grid_incident2024', activePeriod().incidentTrend2024, renderIncidentTrend);
 }
 function renderInspectionTrend(){
-  drawDualLine('inspectionTrendSvg', data.scoreVal, data.scoreTarget, '#1b8a2f', '#1e293b', 100, true);
-  buildMonthGrid('grid_scoreVal', data.scoreVal, renderInspectionTrend);
-  buildMonthGrid('grid_scoreTarget', data.scoreTarget, renderInspectionTrend);
+  drawDualLine('inspectionTrendSvg', activePeriod().scoreVal, activePeriod().scoreTarget, '#1b8a2f', '#1e293b', 100, true);
+  buildMonthGrid('grid_scoreVal', activePeriod().scoreVal, renderInspectionTrend);
+  buildMonthGrid('grid_scoreTarget', activePeriod().scoreTarget, renderInspectionTrend);
   renderValidationWarnings();
 }
 
@@ -1080,52 +1455,52 @@ function renderMultiDonut(donutId, legendId, totalId, items, totalLabel){
 }
 
 function renderDonutsAndBars(){
-  renderMultiDonut('donut_incidentType','legend_incidentType','total_incidentType', data.incidentByType, 'count');
+  renderMultiDonut('donut_incidentType','legend_incidentType','total_incidentType', activePeriod().incidentByType, 'count');
 
   const trItems = [
-    {label:'Completed', value:data.training.completed, color:'#1b8a2f'},
-    {label:'Pending', value:data.training.pending, color:'#c9ccd1'}
+    {label:'Completed', value:activePeriod().training.completed, color:'#1b8a2f'},
+    {label:'Pending', value:activePeriod().training.pending, color:'#c9ccd1'}
   ];
   document.getElementById('donut_training').style.background = conic(trItems);
-  const trTotal = (parseFloat(data.training.completed)||0)+(parseFloat(data.training.pending)||0) || 1;
-  document.getElementById('pct_training').textContent = Math.round(data.training.completed/trTotal*100)+'%';
+  const trTotal = (parseFloat(activePeriod().training.completed)||0)+(parseFloat(activePeriod().training.pending)||0) || 1;
+  document.getElementById('pct_training').textContent = Math.round(activePeriod().training.completed/trTotal*100)+'%';
   const trLegend = document.getElementById('legend_training');
   trLegend.innerHTML = '';
   ['completed','pending'].forEach((key,idx)=>{
     const li = document.createElement('li');
     const color = key==='completed'?'#1b8a2f':'#c9ccd1';
-    const pct = Math.round(data.training[key]/trTotal*100);
+    const pct = Math.round(activePeriod().training[key]/trTotal*100);
     li.innerHTML = `<span class="name"><span class="dot" style="background:${color};"></span>${key.charAt(0).toUpperCase()+key.slice(1)}</span>
-      <input type="number" value="${data.training[key]}" data-key="${key}"><span class="pct">${pct}%</span>`;
+      <input type="number" value="${activePeriod().training[key]}" data-key="${key}"><span class="pct">${pct}%</span>`;
     trLegend.appendChild(li);
     li.querySelector('input').addEventListener('input', e=>{
-      data.training[key] = parseFloat(e.target.value)||0;
+      activePeriod().training[key] = parseFloat(e.target.value)||0;
       renderDonutsAndBars(); save();
     });
   });
 
-  renderMultiDonut('donut_actions','legend_actions','total_actions', data.actions, 'count');
+  renderMultiDonut('donut_actions','legend_actions','total_actions', activePeriod().actions, 'count');
 
   const compItems = [
-    {label:'Compliant', value:data.compliance.compliant, color:'#1b8a2f'},
-    {label:'Non-Compliant', value:data.compliance.nonCompliant, color:'#e02424'}
+    {label:'Compliant', value:activePeriod().compliance.compliant, color:'#1b8a2f'},
+    {label:'Non-Compliant', value:activePeriod().compliance.nonCompliant, color:'#e02424'}
   ];
   document.getElementById('donut_compliance').style.background = conic(compItems);
-  const compTotal = (parseFloat(data.compliance.compliant)||0)+(parseFloat(data.compliance.nonCompliant)||0) || 1;
-  document.getElementById('pct_compliance').textContent = Math.round(data.compliance.compliant/compTotal*100)+'%';
+  const compTotal = (parseFloat(activePeriod().compliance.compliant)||0)+(parseFloat(activePeriod().compliance.nonCompliant)||0) || 1;
+  document.getElementById('pct_compliance').textContent = Math.round(activePeriod().compliance.compliant/compTotal*100)+'%';
   const compLegend = document.getElementById('legend_compliance');
   compLegend.innerHTML='';
   ['compliant','nonCompliant'].forEach(key=>{
     const li = document.createElement('li');
     const color = key==='compliant'?'#1b8a2f':'#e02424';
     const label = key==='compliant'?'Compliant':'Non-Compliant';
-    const val = data.compliance[key];
+    const val = activePeriod().compliance[key];
     const pct = Math.round(val/compTotal*100);
     li.innerHTML = `<span class="name"><span class="dot" style="background:${color};"></span>${label}</span>
       <input type="number" value="${val}" data-key="${key}"><span class="pct">${pct}%</span>`;
     compLegend.appendChild(li);
     li.querySelector('input').addEventListener('input', e=>{
-      data.compliance[key] = parseFloat(e.target.value)||0;
+      activePeriod().compliance[key] = parseFloat(e.target.value)||0;
       renderDonutsAndBars(); save();
     });
   });
@@ -1138,8 +1513,8 @@ function renderDonutsAndBars(){
 function renderBars(){
   const wrap = document.getElementById('bars_locations');
   wrap.innerHTML = '';
-  const max = Math.max(1, ...data.locations.map(l=>parseFloat(l.value)||0));
-  data.locations.forEach((loc,idx)=>{
+  const max = Math.max(1, ...activePeriod().locations.map(l=>parseFloat(l.value)||0));
+  activePeriod().locations.forEach((loc,idx)=>{
     const row = document.createElement('div');
     row.className='bar-row';
     const pct = (parseFloat(loc.value)||0)/max*100;
@@ -1148,7 +1523,7 @@ function renderBars(){
       <input type="number" value="${loc.value}" data-idx="${idx}">`;
     wrap.appendChild(row);
     row.querySelector('input').addEventListener('input', e=>{
-      data.locations[idx].value = parseFloat(e.target.value)||0;
+      activePeriod().locations[idx].value = parseFloat(e.target.value)||0;
       renderBars(); save();
     });
   });
@@ -1161,7 +1536,7 @@ function renderRiskMatrix(){
   const conseq = ['1<br>Insignificant','2<br>Minor','3<br>Moderate','4<br>Major','5<br>Severe'];
   let html = `<tr><th style="text-align:left;">Likelihood</th><th colspan="5">Consequence</th></tr>
     <tr><th></th>${conseq.map(c=>`<th>${c}</th>`).join('')}</tr>`;
-  data.riskMatrix.forEach((row,r)=>{
+  activePeriod().riskMatrix.forEach((row,r)=>{
     html += `<tr><td class="likelihood">${likelihoods[r]}</td>` +
       row.map((v,c)=>`<td class="risk-cell"><input type="number" value="${v}" data-r="${r}" data-c="${c}" style="background:${riskColor(v)}"></td>`).join('') +
       `</tr>`;
@@ -1170,7 +1545,7 @@ function renderRiskMatrix(){
   table.querySelectorAll('input').forEach(inp=>{
     inp.addEventListener('input', e=>{
       const r=+e.target.dataset.r, c=+e.target.dataset.c, v=parseFloat(e.target.value)||0;
-      data.riskMatrix[r][c]=v;
+      activePeriod().riskMatrix[r][c]=v;
       e.target.style.background = riskColor(v);
       save();
     });
@@ -1181,9 +1556,9 @@ function renderRiskMatrix(){
 function renderEnv(){
   const list = document.getElementById('envList');
   list.innerHTML = '';
-  data.environmental.forEach((it,idx)=>{
+  activePeriod().environmental.forEach((it,idx)=>{
     const li = document.createElement('li');
-    li.innerHTML = `<span class="left">${it.icon} ${it.label}</span>
+    li.innerHTML = `<span class="left"><span>${it.icon}</span><span class="label-text" title="${it.label}">${it.label}</span></span>
       <span style="display:flex;align-items:center;gap:4px;">
         <input class="valin" type="number" value="${it.value}" data-idx="${idx}" data-f="value">
         <select class="dirsel" data-idx="${idx}" data-f="dir">
@@ -1197,7 +1572,7 @@ function renderEnv(){
   list.querySelectorAll('input,select').forEach(el=>{
     el.addEventListener('input', e=>{
       const idx=+e.target.dataset.idx, f=e.target.dataset.f;
-      data.environmental[idx][f] = (f==='value'||f==='delta') ? parseFloat(e.target.value)||0 : e.target.value;
+      activePeriod().environmental[idx][f] = (f==='value'||f==='delta') ? parseFloat(e.target.value)||0 : e.target.value;
       save();
       renderValidationWarnings();
     });
@@ -1212,16 +1587,21 @@ function populateSelect(id, options, selectedValue){
   ).join('');
 }
 function renderFilters(){
-  populateSelect('f_year', data.filterOptions.years, data.filterSelected.year);
-  populateSelect('f_month', MONTHS, data.filterSelected.month);
-  populateSelect('f_dept', data.filterOptions.departments, data.filterSelected.department);
-  populateSelect('f_loc', data.filterOptions.locations, data.filterSelected.location);
+  populateSelect('f_year', data.filterOptions.years, filterSelected.year);
+  populateSelect('f_month', MONTHS, filterSelected.month);
+  populateSelect('f_dept', data.filterOptions.departments, filterSelected.department);
+  populateSelect('f_loc', data.filterOptions.locations, filterSelected.location);
 }
 function wireFilters(){
   const bind = (id, key)=>{
     document.getElementById(id).addEventListener('change', e=>{
-      data.filterSelected[key] = e.target.value;
-      save();
+      // Which period you're LOOKING AT is local to this browser/device —
+      // it doesn't sync to the cloud and doesn't affect other viewers.
+      filterSelected[key] = e.target.value;
+      saveFilterSelected();
+      ensurePeriod(periodKey(filterSelected));
+      renderAll();
+      if(currentPage==='jsonEditor') refreshJsonTextarea();
     });
   };
   bind('f_year','year'); bind('f_month','month'); bind('f_dept','department'); bind('f_loc','location');
@@ -1230,15 +1610,18 @@ function wireFilters(){
     btn.addEventListener('click', ()=>{
       if(!editMode) return;
       const optKey = btn.dataset.optkey;   // years | departments | locations
-      const selId = btn.dataset.selid;     // f_year | f_dept | f_loc
       const selKey = {years:'year', departments:'department', locations:'location'}[optKey];
       const current = data.filterOptions[optKey].join(', ');
       const input = prompt(`Edit the list (comma-separated):`, current);
       if(input===null) return;
       const list = input.split(',').map(s=>s.trim()).filter(s=>s.length>0);
       if(list.length===0){ alert('List cannot be empty.'); return; }
+      // The list of available options IS shared/global, so this does sync.
       data.filterOptions[optKey] = list;
-      if(!list.includes(data.filterSelected[selKey])) data.filterSelected[selKey] = list[0];
+      if(!list.includes(filterSelected[selKey])){
+        filterSelected[selKey] = list[0];
+        saveFilterSelected();
+      }
       renderFilters();
       save();
     });
@@ -1414,7 +1797,7 @@ function applyJsonTextarea(){
     alert('That is not valid JSON:\n' + e.message);
     return;
   }
-  data = parsed;
+  data = mergeWithFresh(parsed);
   save();
   renderAll();
   refreshJsonTextarea();
@@ -1497,9 +1880,11 @@ function renderAll(){
 
 try{ editMode = sessionStorage.getItem(SESSION_UNLOCK_KEY)==='1'; }catch(e){ editMode = false; }
 renderLockBadge();
+setCloudStatus('unconfigured');
 renderAll();
 wireEditableText();
 wireFilters();
+initCloud();
 </script>
 </body>
 </html>
