@@ -2,43 +2,72 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Complete HSE Dashboard (Editable)</title>
+<title>HSE Management System</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --bg:#eef1f0; --card:#ffffff; --text:#111827; --sub:#6b7280; --border:#e5e7eb;
-    --green:#1b8a2f; --green-dark:#0d4d18; --sidebar:#0a1a12;
-    --amber:#f5b400; --orange:#f2711c; --red:#e02424; --blue:#1f4fd8; --purple:#6f2bd6;
+    --bg:#eef2f4; --card:#ffffff; --card-glass:rgba(255,255,255,.72); --text:#111827; --sub:#6b7280; --border:#e2e6ea;
+    --green:#0f9d58; --green-dark:#0a6b3c; --green-light:#12b768;
+    --navy:#0b2540; --navy-2:#123a63; --sidebar:#081b2e;
+    --amber:#f5b400; --orange:#f2711c; --red:#e02424; --blue:#1f6fd8; --purple:#6f2bd6;
+    --shadow:0 4px 24px rgba(15,40,60,.08);
+    --shadow-lg:0 8px 40px rgba(15,40,60,.14);
+    --radius:14px;
+    --blur:saturate(180%) blur(14px);
+  }
+  html[data-theme="dark"]{
+    --bg:#0c1420; --card:#131f30; --card-glass:rgba(19,31,48,.72); --text:#e7edf3; --sub:#93a3b8; --border:#22344a;
+    --green:#1fbf72; --green-dark:#0f8a52; --green-light:#3fe08f;
+    --navy:#050d18; --navy-2:#0d2138; --sidebar:#050d18;
+    --amber:#f5b400; --orange:#f2711c; --red:#f0554d; --blue:#4f8ef7; --purple:#a482f0;
+    --shadow:0 4px 24px rgba(0,0,0,.35);
+    --shadow-lg:0 10px 44px rgba(0,0,0,.5);
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--sidebar);color:var(--text);}
-  .shell{display:flex;max-width:1450px;margin:0 auto;min-height:100vh;background:var(--sidebar);}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--sidebar);color:var(--text);transition:background .25s,color .25s;}
+  .shell{display:flex;max-width:1520px;margin:0 auto;min-height:100vh;background:var(--sidebar);}
 
-  .sidebar{width:225px;flex-shrink:0;background:var(--sidebar);color:#cfe8d4;padding:22px 14px 18px;display:flex;flex-direction:column;}
-  .brand{text-align:center;margin-bottom:18px;}
-  .brand-badge{width:56px;height:56px;margin:0 auto 8px;border:2px solid #4caf50;border-radius:10px;display:flex;align-items:center;justify-content:center;background:#0f2418;}
-  .brand-badge svg{width:30px;height:30px;}
-  .brand-name{font-size:11px;letter-spacing:.06em;color:#9fd6a8;font-weight:600;}
+  .sidebar{width:235px;flex-shrink:0;background:linear-gradient(180deg,var(--sidebar),var(--navy-2));color:#cfe8d4;padding:20px 14px 16px;display:flex;flex-direction:column;transition:width .22s ease;position:relative;}
+  .sidebar.collapsed{width:74px;}
+  .sidebar.collapsed .brand-name, .sidebar.collapsed .lock-badge, .sidebar.collapsed .cloud-status,
+  .sidebar.collapsed .tab-pill .lbl, .sidebar.collapsed .sidebar-footer .name, .sidebar.collapsed .sidebar-footer .role,
+  .sidebar.collapsed .role-select{display:none !important;}
+  .sidebar.collapsed .tab-pill{justify-content:center;}
+  .sidebar.collapsed .sidebar-footer{justify-content:center;}
+  .collapse-btn{
+    position:absolute;top:16px;right:-11px;width:22px;height:22px;border-radius:50%;
+    background:var(--green);border:2px solid var(--sidebar);color:#fff;font-size:11px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;
+  }
+  .brand{text-align:center;margin-bottom:14px;}
+  .brand-badge{width:52px;height:52px;margin:0 auto 8px;border:2px solid var(--green-light);border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.06);}
+  .brand-badge svg{width:28px;height:28px;}
+  .brand-name{font-size:10.5px;letter-spacing:.06em;color:#9fd6a8;font-weight:700;}
   nav{flex:1;overflow-y:auto;}
-  nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;margin-bottom:3px;border-radius:8px;color:#c7dacb;text-decoration:none;font-size:13px;}
-  nav a.active{background:linear-gradient(90deg,#1b8a2f,#2fb548);color:#fff;font-weight:600;}
-  nav a .ic{width:16px;text-align:center;font-size:14px;}
-  .sidebar-footer{display:flex;align-items:center;gap:10px;padding-top:14px;border-top:1px solid #1c3324;font-size:12.5px;}
-  .avatar{width:32px;height:32px;border-radius:50%;background:#274a33;display:flex;align-items:center;justify-content:center;color:#cfe8d4;font-weight:700;font-size:13px;}
-  .sidebar-footer .name{font-weight:600;color:#e7f4ea;}
-  .sidebar-footer .role{color:#8fb896;font-size:11px;}
+  .sidebar-footer{display:flex;align-items:center;gap:9px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);font-size:12.5px;}
+  .avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--blue));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0;}
+  .sidebar-footer .name{font-weight:700;color:#eef6f0;}
+  .sidebar-footer .role{color:#8fb896;font-size:10.5px;}
+  .role-select{
+    margin-top:3px;font-size:10px;background:rgba(255,255,255,.08);color:#cfe8d4;
+    border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:2px 5px;
+  }
 
-  .main{flex:1;background:var(--bg);padding:18px 20px 26px;border-radius:14px 0 0 14px;}
+  .main{flex:1;background:var(--bg);padding:18px 22px 26px;border-radius:20px 0 0 20px;min-height:100vh;transition:background .25s;}
 
   .header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;margin-bottom:14px;}
-  .header h1{margin:0;font-size:24px;font-weight:800;}
-  .header h1 .accent{color:var(--green);}
-  .header .tagline{margin:2px 0 0;font-size:12px;font-weight:700;letter-spacing:.03em;color:#374151;}
+  .header h1{margin:0;font-size:23px;font-weight:800;color:var(--text);}
+  .header h1 .accent{background:linear-gradient(90deg,var(--green),var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .header .tagline{margin:2px 0 0;font-size:12px;font-weight:700;letter-spacing:.03em;color:var(--sub);}
   .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .pillbtn{background:#e2f3e4;color:var(--green-dark);border:1px solid #bfe4c4;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
-  .pillbtn.dark{background:linear-gradient(90deg,#0d4d18,#1b8a2f);color:#fff;border:none;}
-  .pillbtn:hover{filter:brightness(1.05);}
-  .pillbtn:disabled{opacity:.45;cursor:not-allowed;filter:none;}
+  .pillbtn{background:var(--card);color:var(--green-dark);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);}
+  .pillbtn.dark{background:linear-gradient(90deg,var(--green-dark),var(--green));color:#fff;border:none;}
+  .pillbtn:hover{filter:brightness(1.06);transform:translateY(-1px);}
+  .pillbtn:disabled{opacity:.4;cursor:not-allowed;filter:none;transform:none;}
+  .theme-toggle{
+    background:var(--card);border:1px solid var(--border);border-radius:10px;width:36px;height:36px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px;box-shadow:var(--shadow);
+  }
   #saveNote{font-size:11.5px;color:var(--green-dark);font-weight:700;opacity:0;transition:opacity .3s;}
 
   /* Vertical tabs in the left sidebar */
@@ -101,43 +130,98 @@
   [contenteditable="true"]:hover{outline:1px dashed #9ca3af;}
   [contenteditable="true"]:focus{outline:1px dashed var(--green);background:rgba(27,138,47,.06);}
   button:disabled{opacity:.3;cursor:not-allowed;}
-  input:disabled, select:disabled, textarea:disabled{opacity:.7;cursor:default;background:#f7f7f8;}
+  input:disabled, select:disabled, textarea:disabled{opacity:.7;cursor:default;background:rgba(120,120,120,.08);}
 
   .filters{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px;margin-bottom:14px;}
-  .field{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:6px 12px;}
+  .field{background:var(--card-glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--border);border-radius:9px;padding:6px 12px;box-shadow:var(--shadow);}
   .field label{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:1px;}
   .editListBtn{border:none;background:none;color:var(--blue);cursor:pointer;font-size:11px;padding:0 0 0 6px;}
-  .editListBtn:disabled{color:#c4c9d1;cursor:not-allowed;}
+  .editListBtn:disabled{color:#8890a0;cursor:not-allowed;}
   .field select, .field input{border:none;background:transparent;font-size:13px;font-weight:600;width:100%;padding:2px 0;color:var(--text);}
   .field select:focus, .field input:focus{outline:none;}
-  .refresh-btn{background:linear-gradient(90deg,#0d4d18,#1b8a2f);color:#fff;border:none;border-radius:9px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer;}
+  .refresh-btn{background:linear-gradient(90deg,var(--green-dark),var(--green));color:#fff;border:none;border-radius:9px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer;}
 
   .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px;}
-  .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 10px;}
+  .kpi-card{
+    background:var(--card-glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+    border:1px solid var(--border);border-radius:var(--radius);padding:12px 11px;box-shadow:var(--shadow);
+    transition:transform .18s, box-shadow .18s;animation:cardIn .35s ease both;
+  }
+  .kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);}
+  @keyframes cardIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
   .kpi-top{display:flex;align-items:flex-start;gap:8px;}
   .kpi-icon{font-size:18px;line-height:1.3;}
   .kpi-value-in{font-size:17px;font-weight:800;line-height:1;width:70px;border:none;background:transparent;padding:0;color:var(--text);}
   .kpi-value-in:focus{outline:1px solid var(--green);border-radius:4px;}
   .kpi-suffix{font-size:12px;font-weight:700;color:var(--sub);}
-  .auto-tag{font-size:9px;font-weight:700;color:#7c9885;background:#eef4ef;border-radius:5px;padding:1px 5px;margin-left:3px;white-space:nowrap;}
+  .auto-tag{font-size:9px;font-weight:700;color:var(--green-dark);background:rgba(15,157,88,.12);border-radius:5px;padding:1px 5px;margin-left:3px;white-space:nowrap;}
   .computed-kpi{cursor:default;background:transparent !important;color:var(--text) !important;opacity:1 !important;}
-  .validation-banner{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:9px;padding:10px 14px;font-size:12px;margin-bottom:12px;}
+  .validation-banner{background:rgba(245,180,0,.12);border:1px solid rgba(245,180,0,.4);color:#9a5b00;border-radius:9px;padding:10px 14px;font-size:12px;margin-bottom:12px;}
+  html[data-theme="dark"] .validation-banner{color:#ffce6b;}
   .validation-banner .vb-title{font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
   .validation-banner ul{margin:0;padding-left:18px;}
   .validation-banner li{margin-bottom:2px;}
-  .snap-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f2f2f3;font-size:12px;gap:10px;}
+
+  #qrPublicFormWrap{display:none;}
+  body.qr-public-mode .shell{display:none;}
+  body.qr-public-mode #qrPublicFormWrap{
+    display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;
+  }
+  .qr-public-card{
+    background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:28px 26px;max-width:420px;width:100%;box-shadow:var(--shadow-lg);
+  }
+  .qr-public-card h2{margin:0 0 6px;font-size:20px;color:var(--text);}
+  .qr-public-card p{margin:0 0 18px;font-size:13px;color:var(--sub);}
+  .qr-public-card label{display:block;font-size:12px;font-weight:700;color:var(--text);margin:12px 0 4px;}
+  .qr-public-card select, .qr-public-card textarea, .qr-public-card input[type=text]{
+    width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 10px;font-size:13px;
+    background:var(--bg);color:var(--text);font-family:inherit;
+  }
+  .qr-public-card textarea{resize:vertical;}
+  .qr-public-card .qr-check{display:flex;align-items:center;gap:8px;font-weight:600;font-size:12.5px;margin-top:14px;}
+  .qr-public-card .qr-check input{width:auto;}
+  .qr-public-card button{
+    width:100%;margin-top:18px;background:linear-gradient(90deg,var(--green-dark),var(--green));
+    color:#fff;border:none;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;
+  }
+  .qr-code-box{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:14px;
+    background:var(--card-glass);backdrop-filter:var(--blur);border:1px solid var(--border);border-radius:var(--radius);}
+  .qr-code-box img{border-radius:8px;border:1px solid var(--border);}
+  .qr-code-box .qr-link{font-size:12px;color:var(--sub);word-break:break-all;}
+
+  #liveAlertCenter{margin-bottom:12px;}
+  .alert-panel{
+    background:var(--card-glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+    border:1px solid var(--border);border-radius:var(--radius);padding:12px 15px;box-shadow:var(--shadow);
+  }
+  .alert-panel h3{margin:0 0 8px;font-size:12.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px;}
+  .alert-list{list-style:none;margin:0;padding:0;max-height:160px;overflow-y:auto;}
+  .alert-item{
+    display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;margin-bottom:5px;font-size:12px;font-weight:600;
+  }
+  .alert-item.overdue{background:rgba(224,36,36,.1);color:var(--red);}
+  .alert-item.due-soon{background:rgba(245,180,0,.12);color:#9a5b00;}
+  html[data-theme="dark"] .alert-item.due-soon{color:#ffce6b;}
+  .alert-item .src{font-weight:400;color:var(--sub);margin-left:auto;font-size:10.5px;flex-shrink:0;}
+  .alert-empty{font-size:12px;color:var(--sub);padding:6px 2px;}
+  .snap-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;gap:10px;}
   .snap-row:last-child{border-bottom:none;}
   .snap-empty{font-size:11.5px;color:var(--sub);}
   .kpi-label{font-size:10px;color:var(--sub);margin-top:2px;}
   .kpi-delta-row{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:11px;font-weight:700;}
   .kpi-delta-row select{border:none;background:transparent;font-size:11px;font-weight:700;padding:0;}
-  .kpi-delta-row input{width:36px;border:none;border-bottom:1px dashed #c7cbd1;background:transparent;font-size:11px;font-weight:700;padding:0;}
+  .kpi-delta-row input{width:36px;border:none;border-bottom:1px dashed var(--border);background:transparent;font-size:11px;font-weight:700;padding:0;color:var(--text);}
   .kpi-delta-row .grey{color:var(--sub);font-weight:400;font-size:10.5px;}
   .up-color{color:var(--green);} .down-color{color:var(--red);}
 
   .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 15px 15px;}
-  .panel h3{margin:0 0 8px;font-size:12.5px;font-weight:800;letter-spacing:.02em;display:flex;justify-content:space-between;align-items:center;}
+  .panel{
+    background:var(--card-glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+    border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px 15px;box-shadow:var(--shadow);
+    animation:cardIn .35s ease both;
+  }
+  .panel h3{margin:0 0 8px;font-size:12.5px;font-weight:800;letter-spacing:.02em;display:flex;justify-content:space-between;align-items:center;color:var(--text);}
   .panel h3 .edit-toggle{font-size:10.5px;color:var(--blue);font-weight:600;cursor:pointer;background:none;border:none;}
 
   .legend{list-style:none;margin:8px 0 0;padding:0;}
@@ -217,13 +301,43 @@
     .filters{grid-template-columns:1fr;}
   }
 
+  /* ---------- TOAST NOTIFICATIONS ---------- */
+  #toastContainer{
+    position:fixed;bottom:20px;right:20px;z-index:200;
+    display:flex;flex-direction:column;gap:8px;max-width:320px;
+  }
+  .toast{
+    background:var(--card);color:var(--text);border:1px solid var(--border);border-left:4px solid var(--green);
+    border-radius:10px;padding:11px 14px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow-lg);
+    animation:toastIn .28s ease both;display:flex;align-items:center;gap:8px;
+  }
+  .toast.err{border-left-color:var(--red);}
+  .toast.warn{border-left-color:var(--amber);}
+  .toast.info{border-left-color:var(--blue);}
+  .toast.leaving{animation:toastOut .22s ease forwards;}
+  @keyframes toastIn{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+  @keyframes toastOut{from{opacity:1;}to{opacity:0;transform:translateX(30px);}}
+
+  /* ---------- SKELETON LOADERS ---------- */
+  .skeleton{
+    background:linear-gradient(90deg, var(--border) 25%, rgba(255,255,255,.35) 50%, var(--border) 75%);
+    background-size:200% 100%;animation:skeletonShine 1.3s ease infinite;border-radius:8px;
+  }
+  @keyframes skeletonShine{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  #skeletonOverlay{position:absolute;inset:0;background:var(--bg);z-index:50;padding:18px 22px;display:flex;flex-direction:column;gap:14px;}
+  #skeletonOverlay .sk-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  #skeletonOverlay .sk-card{height:70px;}
+  #skeletonOverlay .sk-panel{height:220px;}
+  #skeletonOverlay .sk-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+
   /* ---------- PRINT / SAVE AS PDF ---------- */
   @media print{
     * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
     body{background:#fff;}
     .sidebar, .toolbar, .lock-badge, #validationWarnings,
     .editListBtn, .delRowBtn, details.editor, .pillbtn, .refresh-btn,
-    #importFile{ display:none !important; }
+    #importFile, #toastContainer, .theme-toggle, .collapse-btn, #skeletonOverlay,
+    #liveAlertCenter .alert-dismiss{ display:none !important; }
     .shell{display:block;}
     .main{padding:0;border-radius:0;background:#fff;}
     .panel, .kpi-card{box-shadow:none !important;border:1px solid #ddd;break-inside:avoid;}
@@ -240,9 +354,52 @@
 </style>
 </head>
 <body>
+<div id="skeletonOverlay">
+  <div class="sk-row">
+    <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
+    <div class="skeleton sk-card"></div><div class="skeleton sk-card"></div><div class="skeleton sk-card"></div>
+  </div>
+  <div class="sk-grid3">
+    <div class="skeleton sk-panel"></div><div class="skeleton sk-panel"></div><div class="skeleton sk-panel"></div>
+  </div>
+  <div class="sk-grid3">
+    <div class="skeleton sk-panel"></div><div class="skeleton sk-panel"></div><div class="skeleton sk-panel"></div>
+  </div>
+</div>
+<div id="toastContainer"></div>
+<div id="qrPublicFormWrap">
+  <div class="qr-public-card">
+    <div id="qrFormBody">
+      <h2>&#128736; Quick Safety Report</h2>
+      <p>No login needed. Submit a safety observation, hazard, or near miss directly to the HSE team.</p>
+      <label>What are you reporting?</label>
+      <select id="qrType">
+        <option>Unsafe Act</option>
+        <option>Unsafe Condition</option>
+        <option>Near Miss</option>
+        <option>Hazard</option>
+        <option>Suggestion</option>
+        <option>Good Practice</option>
+      </select>
+      <label>Description</label>
+      <textarea id="qrDesc" rows="4" placeholder="Briefly describe what you saw..."></textarea>
+      <label>Location (optional)</label>
+      <input type="text" id="qrLoc" placeholder="e.g. Plant Area 1, Warehouse...">
+      <label class="qr-check"><input type="checkbox" id="qrAnon" checked> Submit anonymously</label>
+      <button onclick="submitQrReport()">Submit Report</button>
+      <div id="qrSubmitError" style="color:#e02424;font-size:12px;margin-top:8px;display:none;"></div>
+    </div>
+    <div id="qrThankYou" style="display:none;">
+      <h2>&#9989; Thank you</h2>
+      <p>Your report has been submitted to the HSE team.</p>
+      <button onclick="location.reload()">Submit another report</button>
+    </div>
+  </div>
+</div>
 <div class="shell">
 
-  <div class="sidebar">
+  <div class="sidebar" id="sidebarEl">
+    <div class="collapse-btn" id="collapseBtn" onclick="toggleSidebar()" title="Collapse sidebar">&#8249;</div>
     <div class="brand">
       <div class="brand-badge">
         <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V5l7-3z" stroke="#4caf50" stroke-width="1.4"/><path d="M8 9c1 2 2 3 4 3s3-1 4-3" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>
@@ -253,10 +410,14 @@
     <div id="cloudStatus" class="cloud-status"></div>
     <nav class="tabs-left" id="tabsSidebar"></nav>
     <div class="sidebar-footer">
-      <div class="avatar">H</div>
+      <div class="avatar" id="avatarLetter">H</div>
       <div>
         <div class="name" id="userName" contenteditable="true" spellcheck="false">HSE Manager</div>
         <div class="role" id="userRole" contenteditable="true" spellcheck="false">Safety First, Always</div>
+        <select class="role-select" id="myRoleSelect" title="Your role (label only, not enforced)">
+          <option>Admin</option><option>Manager</option><option>Engineer</option>
+          <option>Supervisor</option><option>Viewer</option>
+        </select>
       </div>
     </div>
   </div>
@@ -272,6 +433,7 @@
       </div>
       <div class="toolbar">
         <span id="saveNote">Saved</span>
+        <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle dark/light mode">&#9728;</button>
         <button class="pillbtn" onclick="window.print()">&#128424; Print / Save PDF</button>
         <button class="pillbtn" onclick="exportData()">Export Dashboard</button>
         <button class="pillbtn editOnly" onclick="document.getElementById('importFile').click()">Import Dashboard</button>
@@ -279,6 +441,8 @@
         <button class="pillbtn editOnly" onclick="resetData()">Reset Sample Data</button>
       </div>
     </div>
+
+    <div id="liveAlertCenter"></div>
 
     <div class="filters">
       <div class="field"><label>Year <button class="editListBtn editOnly" data-optkey="years" data-selid="f_year" title="Edit list of years">&#9998;</button></label>
@@ -416,6 +580,7 @@
         <button class="pillbtn dark editOnly" onclick="addGenericRow()">+ Add Row</button>
       </div>
     </div>
+    <div id="qrCodeArea"></div>
     <div class="panel">
       <table class="risk-table" id="genericTable" style="text-align:left;"></table>
     </div>
@@ -454,6 +619,39 @@
       <div id="snapshotsList"></div>
     </div>
   </div><!-- /page-json -->
+
+  <div id="page-analytics" style="display:none;">
+    <div class="header">
+      <div>
+        <h1>Analytics</h1>
+        <p class="tagline"><em style="color:var(--sub);font-weight:600;">deeper insight into the currently selected period's data</em></p>
+      </div>
+    </div>
+    <div class="grid3">
+      <div class="panel">
+        <h3>INSPECTION SCORE</h3>
+        <div id="gaugeInspection"></div>
+      </div>
+      <div class="panel">
+        <h3>ENVIRONMENTAL COMPLIANCE</h3>
+        <div id="gaugeCompliance"></div>
+      </div>
+      <div class="panel">
+        <h3>TRAINING COMPLETION</h3>
+        <div id="gaugeTraining"></div>
+      </div>
+    </div>
+    <div class="grid3">
+      <div class="panel" style="grid-column:span 2;">
+        <h3>INCIDENT BY TYPE — PARETO ANALYSIS</h3>
+        <svg id="paretoSvg" viewBox="0 0 560 220" width="100%" height="220"></svg>
+      </div>
+      <div class="panel">
+        <h3>QUICK STATS</h3>
+        <ul class="legend" id="analyticsQuickStats"></ul>
+      </div>
+    </div>
+  </div><!-- /page-analytics -->
 
   </div>
 </div>
@@ -696,6 +894,7 @@ async function tryUnlock(){
     try{ sessionStorage.setItem(SESSION_UNLOCK_KEY, '1'); }catch(e){}
     renderLockBadge();
     applyEditMode();
+    showToast('Editing enabled', 'ok', 2000);
   }else{
     alert('Incorrect password.');
   }
@@ -832,9 +1031,9 @@ function blankPeriod(){
       [0,0,0,0,0]
     ],
     environmental: [
-      {icon:'&#128202;', label:'TRIR', value:0, delta:0, dir:'down'},
-      {icon:'&#9201;', label:'LTIFR', value:0, delta:0, dir:'down'},
-      {icon:'&#128201;', label:'LTIIR', value:0, delta:0, dir:'down'},
+      {icon:'&#128202;', label:'TRIR', value:0, delta:0, dir:'down', computed:true},
+      {icon:'&#9201;', label:'LTIFR', value:0, delta:0, dir:'down', computed:true},
+      {icon:'&#128201;', label:'LTIIR', value:0, delta:0, dir:'down', computed:true},
       {icon:'&#128295;', label:'Equipment Breakdown', value:0, delta:0, dir:'up'},
       {icon:'&#128176;', label:'Penalties', value:0, delta:0, dir:'down'},
       {icon:'&#9200;', label:'Total Man Hours', value:0, delta:0, dir:'up'},
@@ -871,10 +1070,9 @@ function defaultSeededPeriod(){
     [2,4,6,8,10],
     [1,2,3,4,5]
   ];
-  p.environmental[0].value = 1.2; p.environmental[1].value = 0.8; p.environmental[2].value = 0.5;
   p.environmental[3].value = 3;   p.environmental[3].delta = 10;  p.environmental[3].dir = 'up';
   p.environmental[4].value = 0;
-  p.environmental[5].value = 0;   p.environmental[6].value = 0;
+  p.environmental[5].value = 250000; p.environmental[6].value = 12000;
   p.compliance = {compliant:50, nonCompliant:1};
   return p;
 }
@@ -882,6 +1080,176 @@ const DEFAULT_FILTER_SELECTED = { year:'2024', month:'May', department:'All', lo
 function periodKey(sel){
   sel = sel || DEFAULT_FILTER_SELECTED;
   return [sel.year, sel.month, sel.department, sel.location].join('|');
+}
+
+/* ---------- QR PUBLIC REPORTING (no login/unlock needed) ---------- */
+function maybeShowQrPublicForm(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('report') !== '1') return;
+  document.body.classList.add('qr-public-mode');
+}
+async function submitQrReport(){
+  const type = document.getElementById('qrType').value;
+  const desc = document.getElementById('qrDesc').value.trim();
+  const loc = document.getElementById('qrLoc').value.trim();
+  const anon = document.getElementById('qrAnon').checked;
+  const errEl = document.getElementById('qrSubmitError');
+  errEl.style.display = 'none';
+  if(!desc){
+    errEl.textContent = 'Please add a short description before submitting.';
+    errEl.style.display = 'block';
+    return;
+  }
+  const submitBtn = document.querySelector('#qrFormBody button');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting…';
+  try{
+    if(cloudEnabled){ await pullFromCloud(false); } // grab the freshest shared data first
+    if(!data.pages.qrReporting){
+      data.pages.qrReporting = {columns:['Date','Type','Description','Location','Anonymous','Status'], rows:[]};
+    }
+    const today = new Date().toISOString().slice(0,10);
+    data.pages.qrReporting.rows.push([today, type, desc, loc || '—', anon ? 'Yes':'No', 'Open']);
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+    if(cloudEnabled){ await pushToCloud(); }
+    document.getElementById('qrFormBody').style.display = 'none';
+    document.getElementById('qrThankYou').style.display = 'block';
+  }catch(e){
+    errEl.textContent = 'Something went wrong submitting your report. Please try again.';
+    errEl.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Report';
+  }
+}
+function qrCodeImageUrl(targetUrl){
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(targetUrl);
+}
+
+/* ---------- UI CHROME: theme, sidebar collapse, toasts, role label ---------- */
+let theme = 'light';
+try{ theme = localStorage.getItem('hse_theme_v1') || 'light'; }catch(e){}
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('themeToggleBtn');
+  if(btn) btn.innerHTML = theme==='dark' ? '&#127769;' : '&#9728;';
+}
+function toggleTheme(){
+  theme = theme==='dark' ? 'light' : 'dark';
+  try{ localStorage.setItem('hse_theme_v1', theme); }catch(e){}
+  applyTheme();
+  showToast(theme==='dark' ? 'Dark mode on' : 'Light mode on', 'info', 1400);
+}
+
+let sidebarCollapsed = false;
+try{ sidebarCollapsed = localStorage.getItem('hse_sidebar_collapsed_v1')==='1'; }catch(e){}
+function applySidebarCollapse(){
+  const el = document.getElementById('sidebarEl');
+  const btn = document.getElementById('collapseBtn');
+  if(!el) return;
+  el.classList.toggle('collapsed', sidebarCollapsed);
+  if(btn) btn.innerHTML = sidebarCollapsed ? '&#8250;' : '&#8249;';
+}
+function toggleSidebar(){
+  sidebarCollapsed = !sidebarCollapsed;
+  try{ localStorage.setItem('hse_sidebar_collapsed_v1', sidebarCollapsed?'1':'0'); }catch(e){}
+  applySidebarCollapse();
+}
+
+function showToast(msg, type, duration){
+  type = type || 'ok';
+  duration = duration || 3200;
+  const container = document.getElementById('toastContainer');
+  if(!container) return;
+  const t = document.createElement('div');
+  t.className = 'toast' + (type==='ok' ? '' : ' '+type);
+  t.textContent = msg;
+  container.appendChild(t);
+  setTimeout(()=>{
+    t.classList.add('leaving');
+    setTimeout(()=>t.remove(), 250);
+  }, duration);
+}
+
+let myRole = 'Admin';
+try{ myRole = localStorage.getItem('hse_my_role_v1') || 'Admin'; }catch(e){}
+function applyRoleSelect(){
+  const sel = document.getElementById('myRoleSelect');
+  if(sel) sel.value = myRole;
+}
+function wireRoleSelect(){
+  const sel = document.getElementById('myRoleSelect');
+  if(!sel) return;
+  sel.addEventListener('change', e=>{
+    myRole = e.target.value;
+    try{ localStorage.setItem('hse_my_role_v1', myRole); }catch(e){}
+    showToast('Viewing as ' + myRole + ' (label only — access is not restricted by role)', 'info', 3500);
+  });
+}
+
+function hideSkeleton(){
+  const el = document.getElementById('skeletonOverlay');
+  if(!el) return;
+  el.style.transition = 'opacity .25s';
+  el.style.opacity = '0';
+  setTimeout(()=>{ el.style.display = 'none'; }, 260);
+}
+
+/* ---------- LIVE ALERT CENTER ---------- */
+function daysUntil(dateStr){
+  const d = new Date(dateStr);
+  if(isNaN(d.getTime())) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  d.setHours(0,0,0,0);
+  return Math.round((d - today) / 86400000);
+}
+function computeLiveAlerts(){
+  // Scans a few date-driven modules for overdue / due-soon rows.
+  // Convention: the LAST column that looks like a date is treated as the
+  // due/expiry date, and if a "Status" column exists and already says
+  // Closed/Completed/Approved/Valid, that row is skipped.
+  const CLOSED_WORDS = ['closed','completed','approved','valid','done'];
+  const sources = [
+    {key:'permitToWork', label:'Permit to Work'},
+    {key:'trainingManagement', label:'Training Matrix'},
+    {key:'documentManagement', label:'Document Expiry'},
+    {key:'correctiveActionTracker', label:'Corrective Action'},
+    {key:'inspections', label:'Inspection'},
+    {key:'ncrManagement', label:'NCR'},
+    {key:'scirTracker', label:'SCIR'}
+  ];
+  const alerts = [];
+  sources.forEach(src=>{
+    const page = data.pages[src.key];
+    if(!page) return;
+    const dateColIdx = page.columns.findIndex(c => /date/i.test(c));
+    const statusColIdx = page.columns.findIndex(c => /status/i.test(c));
+    if(dateColIdx===-1) return;
+    page.rows.forEach(row=>{
+      const statusVal = statusColIdx!==-1 ? (row[statusColIdx]||'').toString().toLowerCase() : '';
+      if(CLOSED_WORDS.some(w=>statusVal.includes(w))) return;
+      const days = daysUntil(row[dateColIdx]);
+      if(days===null) return;
+      if(days < 0){
+        alerts.push({level:'overdue', text:`${src.label} overdue by ${Math.abs(days)} day${Math.abs(days)===1?'':'s'} — ${row[0]}`, src:src.label});
+      }else if(days <= 7){
+        alerts.push({level:'due-soon', text:`${src.label} due in ${days} day${days===1?'':'s'} — ${row[0]}`, src:src.label});
+      }
+    });
+  });
+  alerts.sort((a,b)=> (a.level==='overdue'?0:1) - (b.level==='overdue'?0:1));
+  return alerts;
+}
+function renderLiveAlertCenter(){
+  const el = document.getElementById('liveAlertCenter');
+  if(!el) return;
+  const alerts = computeLiveAlerts();
+  if(alerts.length===0){
+    el.innerHTML = `<div class="alert-panel"><h3>&#128276; Live Alert Center</h3><div class="alert-empty">No overdue or upcoming items in the next 7 days. Nice.</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="alert-panel"><h3>&#128276; Live Alert Center <span style="font-weight:400;color:var(--sub);font-size:10.5px;">(${alerts.length})</span></h3>
+    <ul class="alert-list">${alerts.map(a=>`<li class="alert-item ${a.level}">${a.level==='overdue'?'&#9888;':'&#8987;'} ${a.text}<span class="src">${a.src}</span></li>`).join('')}</ul>
+  </div>`;
 }
 
 function sampleData(){
@@ -922,6 +1290,28 @@ function sampleData(){
       tabLabels: {}
     },
     pages: {
+      projectOverview: {
+        columns:['Field','Value'],
+        rows:[
+          ['Project Name','Sample EPC Project'],
+          ['Client','Client Co.'],
+          ['Consultant','Consultant Co.'],
+          ['Main Contractor','Contractor Co.'],
+          ['Project Manager','—'],
+          ['Construction Manager','—'],
+          ['HSE Manager','—'],
+          ['Project Progress %','0'],
+          ['Current Shift','Day'],
+          ['Current Workforce','0'],
+          ['Visitors Today','0'],
+          ['Equipment Count','0'],
+          ['Weather','—'],
+          ['Temperature (°C)','—'],
+          ['Project Start','—'],
+          ['Project Finish','—'],
+          ['Remaining Days','—']
+        ]
+      },
       incidentManagement: {
         columns:['Date','Location','Type','Severity','Status'],
         rows:[
@@ -951,6 +1341,27 @@ function sampleData(){
           ['2024-05-15','Warehouse','H. Al-Qahtani','98','Completed']
         ]
       },
+      ncrManagement: {
+        columns:['NCR No','Date','Category','Observation','Responsible','Due Date','Status'],
+        rows:[
+          ['NCR-001','2024-05-07','Quality','Rebar spacing non-conforming to drawing','Site Engineer','2024-05-21','Open'],
+          ['NCR-002','2024-05-12','Safety','Missing edge protection at Level 3','HSE Officer','2024-05-19','Closed']
+        ]
+      },
+      scirTracker: {
+        columns:['SCIR No','Severity','Observation','Action Required','Responsible','Due Date','Status'],
+        rows:[
+          ['SCIR-001','Major','Unauthorized hot work permit','Retrain & re-issue PTW procedure','HSE Manager','2024-05-25','Open'],
+          ['SCIR-002','Minor','Housekeeping issue at laydown area','Toolbox talk + area cleanup','Site Supervisor','2024-05-18','Closed']
+        ]
+      },
+      correctiveActionTracker: {
+        columns:['Action No','Description','Priority','Owner','Due Date','Status'],
+        rows:[
+          ['CAPA-001','Install additional lighting in Warehouse B','High','Facilities','2024-06-05','In Progress'],
+          ['CAPA-002','Update confined space entry procedure','Medium','HSE Officer','2024-06-10','Open']
+        ]
+      },
       permitToWork: {
         columns:['Permit ID','Type','Location','Requested By','Status'],
         rows:[
@@ -964,6 +1375,41 @@ function sampleData(){
           ['A. Salem','Fire Safety','2024-05-04','Completed'],
           ['B. Naser','First Aid Refresher','2024-05-12','Completed'],
           ['C. Yusuf','Working at Heights','2024-05-20','Pending']
+        ]
+      },
+      documentManagement: {
+        columns:['Document','Category','Expiry Date','Status'],
+        rows:[
+          ['Fire Extinguisher Certificate','Equipment','2024-09-01','Valid'],
+          ['Crane Operator License — J. Reyes','Certification','2024-06-05','Expiring Soon'],
+          ['Emergency Response Plan','Procedure','2025-01-01','Valid']
+        ]
+      },
+      heatStressManagement: {
+        columns:['Date','Time','Heat Index','Temperature (°C)','Humidity (%)','Work Status'],
+        rows:[
+          ['2024-05-14','14:00','High','38','45','Restricted — Frequent Breaks'],
+          ['2024-05-15','13:00','Moderate','34','40','Normal']
+        ]
+      },
+      qrReporting: {
+        columns:['Date','Type','Description','Location','Anonymous','Status'],
+        rows:[
+          ['2024-05-09','Unsafe Condition','Exposed wiring near site office','Site Office','Yes','Closed']
+        ]
+      },
+      contractorScorecard: {
+        columns:['Contractor','Inspection Score (%)','Training (%)','NCR Count','Near Miss Count','Overall Grade'],
+        rows:[
+          ['Contractor Co. A','96','92','1','2','A'],
+          ['Contractor Co. B','84','78','4','5','C']
+        ]
+      },
+      riskRegister: {
+        columns:['Risk','Category','Likelihood','Severity','Residual Risk','Responsible','Due Date','Status'],
+        rows:[
+          ['Fall from height','Safety','3','4','Medium','Site Manager','2024-06-30','Open'],
+          ['Chemical spill','Environmental','2','4','Medium','HSE Officer','2024-06-15','Open']
         ]
       },
       toolboxTalks: {
@@ -1015,18 +1461,21 @@ function sampleData(){
           ['Update PTW procedure','HSE Officer','2024-06-10','Open']
         ]
       },
-      documentManagement: {
-        columns:['Document','Category','Version','Last Updated'],
-        rows:[
-          ['HSE Policy','Policy','v3.2','2024-03-01'],
-          ['Emergency Response Plan','Procedure','v2.0','2024-04-15']
-        ]
-      },
       reports: {
         columns:['Report Name','Period','Generated By','Date'],
         rows:[
           ['Monthly HSE Report','May 2024','HSE Manager','2024-06-01'],
           ['Quarterly Compliance Report','Q2 2024','HSE Manager','2024-07-01']
+        ]
+      },
+      administration: {
+        columns:['Role','Description','Access Level'],
+        rows:[
+          ['Admin','Full access to all modules and settings','Full'],
+          ['Manager','Reviews and approves records across modules','High'],
+          ['Engineer','Enters technical/engineering records','Medium'],
+          ['Supervisor','Logs field data — observations, toolbox talks, inspections','Medium'],
+          ['Viewer','Read-only access to dashboards and reports','View Only']
         ]
       },
       settings: {
@@ -1042,7 +1491,8 @@ function sampleData(){
         rows:[
           ['Editing values','Click any number or text field anywhere and type — everything saves automatically.'],
           ['Adding rows','Use the "+ Add Row" button on each page to log a new item.'],
-          ['Backing up data','Use Export Dashboard on the Dashboard tab to save a copy of everything.']
+          ['Backing up data','Use Export Dashboard on the Dashboard tab to save a copy of everything.'],
+          ['QR Reporting','Anyone can submit a report via the QR code without unlocking the dashboard.']
         ]
       }
     }
@@ -1050,11 +1500,16 @@ function sampleData(){
 }
 
 const PAGE_TITLES = {
-  incidentManagement:'Incident Management', nearMiss:'Near Miss', observations:'Observations',
-  inspections:'Inspections', permitToWork:'Permit to Work', trainingManagement:'Training Management',
+  projectOverview:'Project Overview',
+  incidentManagement:'Incident Management', nearMiss:'Near Miss', observations:'Safety Observation',
+  inspections:'Inspection Management', ncrManagement:'NCR Management', scirTracker:'SCIR Tracker',
+  correctiveActionTracker:'Corrective Action Tracker', permitToWork:'Permit to Work',
+  trainingManagement:'Training Matrix', documentManagement:'Document Expiry',
+  heatStressManagement:'Heat Stress Management', qrReporting:'QR Reporting',
+  contractorScorecard:'Contractor Scorecard', riskRegister:'Risk Register',
   toolboxTalks:'Toolbox Talks', auditCompliance:'Audit & Compliance', riskManagement:'Risk Management',
   environmental:'Environmental', objectivesTargets:'Objectives & Targets', kpisPerformance:'KPIs & Performance',
-  actionTracker:'Action Tracker', documentManagement:'Document Management', reports:'Reports',
+  actionTracker:'Action Tracker', reports:'Reports', administration:'Administration',
   settings:'Settings', help:'Help'
 };
 let currentPage = 'dashboard';
@@ -1419,6 +1874,82 @@ function drawDualLine(svgId, seriesA, seriesB, colorA, colorB, maxVal, showBarsF
   `;
 }
 
+/* ---------- GAUGE CHART (semi-circle) ---------- */
+function drawGauge(containerId, value, max, color, label){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const pct = Math.max(0, Math.min(1, (parseFloat(value)||0)/max));
+  const angle = Math.PI * pct; // 0..PI across the semicircle
+  const cx=100, cy=95, r=78;
+  const x1 = cx - r, y1 = cy;
+  const x2 = cx - r*Math.cos(angle), y2 = cy - r*Math.sin(angle);
+  const largeArc = pct > 0.5 ? 1 : 0;
+  el.innerHTML = `
+    <svg viewBox="0 0 200 120" width="100%" height="120">
+      <path d="M ${x1} ${y1} A ${r} ${r} 0 1 1 ${cx+r} ${cy}" fill="none" stroke="var(--border)" stroke-width="16" stroke-linecap="round"/>
+      <path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round"/>
+      <text x="100" y="90" text-anchor="middle" font-size="26" font-weight="800" fill="var(--text)">${(parseFloat(value)||0).toFixed(0)}%</text>
+      <text x="100" y="108" text-anchor="middle" font-size="10" fill="var(--sub)">${label}</text>
+    </svg>`;
+}
+
+/* ---------- PARETO CHART (bars + cumulative %) ---------- */
+function drawPareto(svgId, items){
+  const svg = document.getElementById(svgId);
+  if(!svg) return;
+  const sorted = [...items].map(it=>({label:it.label, value:parseFloat(it.value)||0}))
+    .sort((a,b)=>b.value-a.value);
+  const total = sorted.reduce((s,x)=>s+x.value,0) || 1;
+  const W=560,H=220, padL=36, padR=40, top=14, bottomAxis=170;
+  const plotW = W-padL-padR;
+  const barW = plotW/sorted.length*0.6;
+  const step = plotW/sorted.length;
+  const maxVal = Math.max(...sorted.map(x=>x.value), 1);
+  let bars='', cumLine=[], labels='', dots='';
+  let cum=0;
+  sorted.forEach((it,i)=>{
+    const x = padL + step*i + (step-barW)/2;
+    const h = (it.value/maxVal) * (bottomAxis-top);
+    const y = bottomAxis - h;
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="#1f4fd8" rx="3"/>`;
+    bars += `<text x="${x+barW/2}" y="${y-4}" text-anchor="middle" font-size="9" fill="var(--sub)">${it.value}</text>`;
+    labels += `<text x="${x+barW/2}" y="${bottomAxis+14}" text-anchor="middle" font-size="8.5" fill="var(--sub)">${it.label.length>10?it.label.slice(0,9)+'…':it.label}</text>`;
+    cum += it.value;
+    const cumPct = cum/total;
+    const cy = bottomAxis - cumPct*(bottomAxis-top);
+    cumLine.push(`${x+barW/2},${cy}`);
+    dots += `<circle cx="${x+barW/2}" cy="${cy}" r="3" fill="#e02424"/>`;
+  });
+  svg.innerHTML = `
+    <line x1="${padL}" y1="${top}" x2="${padL}" y2="${bottomAxis}" stroke="var(--border)"/>
+    <line x1="${padL}" y1="${bottomAxis}" x2="${W-padR}" y2="${bottomAxis}" stroke="var(--border)"/>
+    ${bars}
+    <polyline fill="none" stroke="#e02424" stroke-width="2" points="${cumLine.join(' ')}"/>
+    ${dots}
+    ${labels}
+    <text x="${W-4}" y="${top+8}" text-anchor="end" font-size="8.5" fill="var(--sub)">cumulative %</text>
+  `;
+}
+
+function renderAnalyticsPage(){
+  const p = activePeriod();
+  drawGauge('gaugeInspection', p.kpis[2].value, 100, '#1b8a2f', 'Inspection Score');
+  drawGauge('gaugeCompliance', p.kpis[4].value, 100, '#0f9d58', 'Environmental Compliance');
+  drawGauge('gaugeTraining', p.kpis[3].value, 100, '#6f2bd6', 'Training Completion');
+  drawPareto('paretoSvg', p.incidentByType);
+
+  const totalManHoursItem = p.environmental.find(x=>x.label==='Total Man Hours');
+  const stats = [
+    {label:'Total Incidents', value: p.kpis[0].value},
+    {label:'Total Man Hours', value: totalManHoursItem ? totalManHoursItem.value : 0},
+    {label:'Open Actions', value: p.kpis[5].value},
+    {label:'Compliance', value: Math.round(p.compliance.compliant/((p.compliance.compliant+p.compliance.nonCompliant)||1)*100)+'%'}
+  ];
+  document.getElementById('analyticsQuickStats').innerHTML = stats.map(s=>
+    `<li><span class="name">${s.label}</span><span class="pct">${s.value}</span></li>`
+  ).join('');
+}
+
 function renderIncidentTrend(){
   drawDualLine('incidentTrendSvg', activePeriod().incidentTrend2023, activePeriod().incidentTrend2024, '#1f4fd8', '#1b8a2f', 30, false);
   buildMonthGrid('grid_incident2023', activePeriod().incidentTrend2023, renderIncidentTrend);
@@ -1553,20 +2084,49 @@ function renderRiskMatrix(){
 }
 
 /* ---------- ENVIRONMENTAL PERFORMANCE ---------- */
+function syncComputedEnvironmental(){
+  const p = activePeriod();
+  const byLabel = (arr, label) => arr.find(x=>x.label===label);
+  const recordableLabels = ['Medical Treatment','Restricted Work','Lost Time Injury'];
+  const recordableCases = p.incidentByType
+    .filter(x=>recordableLabels.includes(x.label))
+    .reduce((s,x)=>s+(parseFloat(x.value)||0),0);
+  const ltiItem = byLabel(p.incidentByType, 'Lost Time Injury');
+  const lostTimeInjuries = ltiItem ? (parseFloat(ltiItem.value)||0) : 0;
+  const manHoursItem = byLabel(p.environmental, 'Total Man Hours');
+  const manHours = manHoursItem ? (parseFloat(manHoursItem.value)||0) : 0;
+
+  const trir = byLabel(p.environmental, 'TRIR');
+  const ltifr = byLabel(p.environmental, 'LTIFR');
+  const ltiir = byLabel(p.environmental, 'LTIIR');
+  if(trir)  trir.value  = manHours>0 ? +((recordableCases * 200000) / manHours).toFixed(2) : 0;
+  if(ltifr) ltifr.value = manHours>0 ? +((lostTimeInjuries * 1000000) / manHours).toFixed(2) : 0;
+  if(ltiir) ltiir.value = manHours>0 ? +((lostTimeInjuries * 200000) / manHours).toFixed(2) : 0;
+}
+
 function renderEnv(){
+  syncComputedEnvironmental();
   const list = document.getElementById('envList');
   list.innerHTML = '';
   activePeriod().environmental.forEach((it,idx)=>{
     const li = document.createElement('li');
-    li.innerHTML = `<span class="left"><span>${it.icon}</span><span class="label-text" title="${it.label}">${it.label}</span></span>
-      <span style="display:flex;align-items:center;gap:4px;">
-        <input class="valin" type="number" value="${it.value}" data-idx="${idx}" data-f="value">
-        <select class="dirsel" data-idx="${idx}" data-f="dir">
-          <option value="up" ${it.dir==='up'?'selected':''}>&#9650;</option>
-          <option value="down" ${it.dir==='down'?'selected':''}>&#9660;</option>
-        </select>
-        <input class="deltain" type="number" value="${it.delta}" data-idx="${idx}" data-f="delta">%
-      </span>`;
+    if(it.computed){
+      li.innerHTML = `<span class="left"><span>${it.icon}</span><span class="label-text" title="${it.label}">${it.label}</span></span>
+        <span style="display:flex;align-items:center;gap:4px;">
+          <span style="font-weight:700;color:var(--text);min-width:40px;text-align:right;" title="Auto-calculated from Incident by Type &amp; Total Man Hours">${it.value}</span>
+          <span class="auto-tag">&#8635; auto</span>
+        </span>`;
+    }else{
+      li.innerHTML = `<span class="left"><span>${it.icon}</span><span class="label-text" title="${it.label}">${it.label}</span></span>
+        <span style="display:flex;align-items:center;gap:4px;">
+          <input class="valin" type="number" value="${it.value}" data-idx="${idx}" data-f="value">
+          <select class="dirsel" data-idx="${idx}" data-f="dir">
+            <option value="up" ${it.dir==='up'?'selected':''}>&#9650;</option>
+            <option value="down" ${it.dir==='down'?'selected':''}>&#9660;</option>
+          </select>
+          <input class="deltain" type="number" value="${it.delta}" data-idx="${idx}" data-f="delta">%
+        </span>`;
+    }
     list.appendChild(li);
   });
   list.querySelectorAll('input,select').forEach(el=>{
@@ -1575,8 +2135,10 @@ function renderEnv(){
       activePeriod().environmental[idx][f] = (f==='value'||f==='delta') ? parseFloat(e.target.value)||0 : e.target.value;
       save();
       renderValidationWarnings();
+      if(f==='value'){ syncComputedEnvironmental(); renderEnv(); } // Total Man Hours affects TRIR/LTIFR/LTIIR
     });
   });
+  applyEditMode();
 }
 
 /* ---------- FILTERS (Year / Month / Department / Location) ---------- */
@@ -1629,18 +2191,24 @@ function wireFilters(){
 }
 
 /* ---------- SIDEBAR TABS (incl. Edit JSON) ---------- */
-const TAB_KEYS = ['dashboard', ...Object.keys(PAGE_TITLES), 'jsonEditor'];
+const TAB_KEYS = ['dashboard', 'projectOverview', ...Object.keys(PAGE_TITLES).filter(k=>k!=='projectOverview'), 'analytics', 'jsonEditor'];
 const TAB_ICONS = {
-  dashboard:'&#8962;', incidentManagement:'&#9888;', nearMiss:'&#128269;', observations:'&#128203;',
-  inspections:'&#9989;', permitToWork:'&#128196;', trainingManagement:'&#127891;', toolboxTalks:'&#128172;',
-  auditCompliance:'&#128737;', riskManagement:'&#9888;', environmental:'&#127811;', objectivesTargets:'&#127919;',
-  kpisPerformance:'&#128202;', actionTracker:'&#9989;', documentManagement:'&#128193;', reports:'&#128196;',
+  dashboard:'&#8962;', projectOverview:'&#127959;',
+  incidentManagement:'&#9888;', nearMiss:'&#128269;', observations:'&#128203;',
+  inspections:'&#9989;', ncrManagement:'&#128683;', scirTracker:'&#128226;',
+  correctiveActionTracker:'&#128295;', permitToWork:'&#128196;', trainingManagement:'&#127891;',
+  documentManagement:'&#128193;', heatStressManagement:'&#127777;', qrReporting:'&#128241;',
+  contractorScorecard:'&#127942;', riskRegister:'&#9888;',
+  toolboxTalks:'&#128172;', auditCompliance:'&#128737;', riskManagement:'&#9888;',
+  environmental:'&#127811;', objectivesTargets:'&#127919;', kpisPerformance:'&#128202;',
+  actionTracker:'&#9989;', reports:'&#128196;', analytics:'&#128200;', administration:'&#128100;',
   settings:'&#9881;', help:'&#10067;', jsonEditor:'&#128221;'
 };
 
 function tabLabel(key){
   if(data.text.tabLabels[key]) return data.text.tabLabels[key];
   if(key==='dashboard') return 'Dashboard';
+  if(key==='analytics') return 'Analytics';
   if(key==='jsonEditor') return 'Edit JSON';
   return PAGE_TITLES[key] || key;
 }
@@ -1758,9 +2326,11 @@ function showPage(key){
   const dash = document.getElementById('page-dashboard');
   const generic = document.getElementById('page-generic');
   const jsonPage = document.getElementById('page-json');
+  const analyticsPage = document.getElementById('page-analytics');
   dash.style.display = 'none';
   generic.style.display = 'none';
   jsonPage.style.display = 'none';
+  analyticsPage.style.display = 'none';
 
   if(key==='dashboard'){
     dash.style.display='';
@@ -1769,6 +2339,9 @@ function showPage(key){
     refreshJsonTextarea();
     renderSnapshotsList();
     applyEditMode();
+  }else if(key==='analytics'){
+    analyticsPage.style.display='';
+    renderAnalyticsPage();
   }else{
     generic.style.display='';
     document.getElementById('genericTitle').textContent = tabLabel(key);
@@ -1827,6 +2400,20 @@ function flashSave2(){
 }
 
 function renderGenericPage(key){
+  const qrArea = document.getElementById('qrCodeArea');
+  if(key==='qrReporting'){
+    const publicUrl = window.location.origin + window.location.pathname + '?report=1';
+    qrArea.innerHTML = `<div class="qr-code-box">
+      <img src="${qrCodeImageUrl(publicUrl)}" width="140" height="140" alt="QR code for public safety reporting">
+      <div>
+        <div style="font-weight:800;font-size:13px;margin-bottom:4px;">Scan to report a hazard, near miss, or observation</div>
+        <div style="font-size:12px;color:var(--sub);margin-bottom:6px;">No login needed — anyone can submit, including anonymously.</div>
+        <div class="qr-link">${publicUrl}</div>
+      </div>
+    </div>`;
+  }else{
+    qrArea.innerHTML = '';
+  }
   const pageData = data.pages[key];
   const table = document.getElementById('genericTable');
   if(!pageData){ table.innerHTML = ''; return; }
@@ -1874,17 +2461,24 @@ function renderAll(){
   renderRiskMatrix();
   renderEnv();
   renderFilters();
+  renderLiveAlertCenter();
   applyEditMode();
   renderValidationWarnings();
 }
 
 try{ editMode = sessionStorage.getItem(SESSION_UNLOCK_KEY)==='1'; }catch(e){ editMode = false; }
+applyTheme();
+applySidebarCollapse();
 renderLockBadge();
 setCloudStatus('unconfigured');
 renderAll();
 wireEditableText();
 wireFilters();
+applyRoleSelect();
+wireRoleSelect();
 initCloud();
+maybeShowQrPublicForm();
+setTimeout(hideSkeleton, 350);
 </script>
 </body>
 </html>
