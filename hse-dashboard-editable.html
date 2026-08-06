@@ -167,7 +167,7 @@
   #authOverlay{
     display:none;position:fixed;inset:0;z-index:300;
     align-items:center;justify-content:center;padding:20px;
-    background:var(--bg);
+    background:rgba(5,13,24,.55);backdrop-filter:blur(3px);
   }
   body.qr-public-mode .shell{display:none;}
   body.qr-public-mode #qrPublicFormWrap{
@@ -374,9 +374,10 @@
 </div>
 <div id="toastContainer"></div>
 <div id="authOverlay" style="display:none;">
-  <div class="qr-public-card">
-    <h2>&#128274; Sign in</h2>
-    <p>Sign in with your work email to view or edit the HSE dashboard. New here? Create an account below — the first person to ever sign up becomes Admin automatically.</p>
+  <div class="qr-public-card" style="position:relative;">
+    <button onclick="closeLoginOverlay()" title="Close" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:18px;color:var(--sub);cursor:pointer;line-height:1;">&#10005;</button>
+    <h2>&#128274; Sign in to edit</h2>
+    <p>Anyone can view this dashboard. Sign in with your work email to make changes. New here? Create an account below — the first person to ever sign up becomes Admin automatically.</p>
     <label>Email</label>
     <input type="email" id="authEmail" placeholder="you@company.com" autocomplete="username">
     <label>Password</label>
@@ -933,13 +934,14 @@ async function initAuth(){
   try{
     const { data: { session } } = await supabaseClient.auth.getSession();
     if(session && session.user){ await onAuthReady(session.user); }
-    else{ showLoginOverlay(true); }
+    else{ renderAuthBadge(); } // not signed in — that's fine, dashboard stays viewable, just read-only
     supabaseClient.auth.onAuthStateChange((event, session)=>{
       if(session && session.user){ onAuthReady(session.user); }
       else{ onSignedOut(); }
     });
   }catch(e){
     showLoginOverlay(false);
+    renderAuthBadge();
   }
 }
 
@@ -968,7 +970,7 @@ async function onAuthReady(user){
 function onSignedOut(){
   currentUser = null;
   editMode = false;
-  showLoginOverlay(true);
+  showLoginOverlay(false);
   renderAuthBadge();
   applyEditMode();
 }
@@ -996,24 +998,38 @@ function showAuthError(msg, ok){
   el.style.color = ok ? 'var(--green-dark)' : 'var(--red)';
 }
 function showLoginOverlay(show){
+  if(isQrPublicMode) show = false; // never block the anonymous public report form with a login screen
   const el = document.getElementById('authOverlay');
   if(el) el.style.display = show ? 'flex' : 'none';
+}
+function openLoginOverlay(){
+  showLoginOverlay(true);
+  const err = document.getElementById('authError');
+  if(err) err.style.display = 'none';
+}
+function closeLoginOverlay(){
+  showLoginOverlay(false);
 }
 function renderAuthBadge(){
   const el = document.getElementById('lockBadge');
   if(!el) return;
-  if(!cloudEnabled){
+  if(!isCloudConfigured()){
     // No Supabase configured at all — there's no way for anyone to ever sign
     // in, so don't permanently lock the whole app. Just edit freely, same as
     // a plain local single-user file.
     editMode = true;
     el.className = 'lock-badge unconfigured';
     el.innerHTML = `<span class="state">&#9998; Editing enabled (no accounts set up — set up cloud sync + run the auth SQL to enable real sign-in)</span>`;
+    applyEditMode();
     return;
   }
   if(!currentUser){
+    editMode = false;
     el.className = 'lock-badge locked';
-    el.innerHTML = `<span class="state">&#128274; Not signed in</span>`;
+    el.innerHTML = `
+      <span class="state">&#128274; Viewing only</span>
+      <button class="btn-unlock" onclick="openLoginOverlay()">Sign in to edit</button>`;
+    applyEditMode();
     return;
   }
   el.className = 'lock-badge ' + (editMode ? 'unlocked' : 'locked');
@@ -1269,9 +1285,11 @@ function periodKey(sel){
 }
 
 /* ---------- QR PUBLIC REPORTING (no login/unlock needed) ---------- */
+let isQrPublicMode = false;
 function maybeShowQrPublicForm(){
   const params = new URLSearchParams(window.location.search);
   if(params.get('report') !== '1') return;
+  isQrPublicMode = true;
   document.body.classList.add('qr-public-mode');
 }
 async function submitQrReport(){
@@ -2770,6 +2788,7 @@ function renderAll(){
   renderValidationWarnings();
 }
 
+maybeShowQrPublicForm();
 applyTheme();
 applySidebarCollapse();
 renderAuthBadge();
@@ -2780,7 +2799,6 @@ wireEditableText();
 wireFilters();
 wireAuthForms();
 initCloud();
-maybeShowQrPublicForm();
 setTimeout(hideSkeleton, 350);
 </script>
 </body>
