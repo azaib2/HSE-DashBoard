@@ -91,6 +91,7 @@
   .lock-badge .state{display:flex;align-items:center;gap:6px;}
   .lock-badge.locked .state{color:#f4c78e;}
   .lock-badge.unlocked .state{color:#9fe6ac;}
+  .lock-badge.unconfigured .state{color:#93a3b8;font-weight:600;font-size:11px;}
   .lock-badge .row{display:flex;gap:6px;flex-wrap:wrap;}
   .lock-badge button{
     border:none;border-radius:7px;padding:6px 9px;font-size:11px;font-weight:700;cursor:pointer;
@@ -163,6 +164,11 @@
   .validation-banner li{margin-bottom:2px;}
 
   #qrPublicFormWrap{display:none;}
+  #authOverlay{
+    display:none;position:fixed;inset:0;z-index:300;
+    align-items:center;justify-content:center;padding:20px;
+    background:var(--bg);
+  }
   body.qr-public-mode .shell{display:none;}
   body.qr-public-mode #qrPublicFormWrap{
     display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;
@@ -367,6 +373,19 @@
   </div>
 </div>
 <div id="toastContainer"></div>
+<div id="authOverlay" style="display:none;">
+  <div class="qr-public-card">
+    <h2>&#128274; Sign in</h2>
+    <p>Sign in with your work email to view or edit the HSE dashboard. New here? Create an account below — the first person to ever sign up becomes Admin automatically.</p>
+    <label>Email</label>
+    <input type="email" id="authEmail" placeholder="you@company.com" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password">
+    <button id="authSignInBtn">Sign In</button>
+    <button id="authSignUpBtn" style="background:var(--card);color:var(--green-dark);border:1px solid var(--border);margin-top:8px;">Create Account</button>
+    <div id="authError" style="display:none;font-size:12.5px;margin-top:10px;font-weight:600;"></div>
+  </div>
+</div>
 <div id="qrPublicFormWrap">
   <div class="qr-public-card">
     <div id="qrFormBody">
@@ -414,10 +433,6 @@
       <div>
         <div class="name" id="userName" contenteditable="true" spellcheck="false">HSE Manager</div>
         <div class="role" id="userRole" contenteditable="true" spellcheck="false">Safety First, Always</div>
-        <select class="role-select" id="myRoleSelect" title="Your role (label only, not enforced)">
-          <option>Admin</option><option>Manager</option><option>Engineer</option>
-          <option>Supervisor</option><option>Viewer</option>
-        </select>
       </div>
     </div>
   </div>
@@ -653,6 +668,22 @@
     </div>
   </div><!-- /page-analytics -->
 
+  <div id="page-auditlog" style="display:none;">
+    <div class="header">
+      <div><h1>Audit Log</h1><p class="tagline"><em style="color:var(--sub);font-weight:600;">who did what, and when — read-only, shared across everyone</em></p></div>
+      <div class="toolbar"><button class="pillbtn" onclick="loadAuditLog()">&#8635; Refresh</button></div>
+    </div>
+    <div class="panel"><div id="auditLogList"></div></div>
+  </div><!-- /page-auditlog -->
+
+  <div id="page-versionhistory" style="display:none;">
+    <div class="header">
+      <div><h1>Version History</h1><p class="tagline"><em style="color:var(--sub);font-weight:600;">full dashboard snapshots over time, shared across everyone — a new one is kept roughly every time someone finishes a batch of edits</em></p></div>
+      <div class="toolbar"><button class="pillbtn" onclick="loadVersionHistory()">&#8635; Refresh</button></div>
+    </div>
+    <div class="panel"><div id="versionHistoryList"></div></div>
+  </div><!-- /page-versionhistory -->
+
   </div>
 </div>
 
@@ -718,15 +749,20 @@ function setCloudStatus(state, extra){
 async function initCloud(){
   if(!isCloudConfigured()){
     setCloudStatus('unconfigured');
+    renderAuthBadge();
+    showLoginOverlay(false);
     return;
   }
   if(typeof window.supabase === 'undefined'){
     setCloudStatus('error', '(library failed to load)');
+    renderAuthBadge();
+    showLoginOverlay(false);
     return;
   }
   try{
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     cloudEnabled = true;
+    initAuth(); // don't block data sync on auth resolving
     await pullFromCloud(true);
     subscribeRealtime();
     // Safety-net poll in case the realtime socket drops
@@ -734,6 +770,8 @@ async function initCloud(){
   }catch(e){
     cloudEnabled = false;
     setCloudStatus('error', '(' + (e && e.message ? e.message : 'unknown error') + ')');
+    renderAuthBadge();
+    showLoginOverlay(false);
   }
 }
 
@@ -813,9 +851,27 @@ async function pushToCloud(){
       localHasUnsyncedChanges = false;
     }
     setCloudStatus('synced');
+    scheduleVersionSnapshot();
   }catch(e){
     setCloudStatus('error', '(' + (e && e.message ? e.message : 'unknown error') + ')');
   }
+}
+
+let versionSnapshotTimer = null;
+function scheduleVersionSnapshot(){
+  // Full data pushes happen every ~700ms while someone is actively typing —
+  // writing a version row on every single one would flood the history table.
+  // Instead, only record a version if it's been a while since the last one.
+  clearTimeout(versionSnapshotTimer);
+  versionSnapshotTimer = setTimeout(writeVersionSnapshot, 45000);
+}
+async function writeVersionSnapshot(){
+  if(!cloudEnabled || !supabaseClient) return;
+  try{
+    await supabaseClient.from('data_versions').insert({
+      data: data, user_email: currentUser ? currentUser.email : 'unknown'
+    });
+  }catch(e){}
 }
 
 function subscribeRealtime(){
@@ -856,81 +912,211 @@ document.addEventListener('focusout', e=>{
 
 
 
-/* ============ EDIT-LOCK SECURITY ============
-   This is client-side only: it hides/disables editing controls from casual
-   viewers behind a password. Anyone with browser dev-tools could bypass it,
-   so don't rely on this for protecting truly sensitive data — but it stops
-   ordinary viewers from editing and keeps the dashboard "view only" for them.
-
-   DEFAULT PASSWORD is: changeme123
-   To set your own permanent password: open this file in a text editor,
-   change PASSWORD_PLAINTEXT_HINT below (just a reminder for you), then
-   replace DEFAULT_PASSWORD_HASH with the SHA-256 hex digest of your new
-   password. Or simpler: once unlocked in your browser, click "Change
-   Password" — this saves a new hash to THIS BROWSER only (localStorage),
-   which overrides the default below on this device.
+/* ============ AUTHENTICATION & ROLE-BASED ACCESS (Supabase Auth) ============
+   Real per-person accounts. Everyone signs in with their own email/password.
+   Their role (Admin/Manager/Engineer/Supervisor/Viewer) is stored in the
+   `profiles` table and controls whether they can edit. Viewers are read-only;
+   everyone else can edit. Admins can also change other people's roles from
+   the Administration tab. Requires the SQL setup (profiles/audit_log/
+   data_versions tables + trigger) to have been run in Supabase already.
 */
-const PASSWORD_PLAINTEXT_HINT = 'changeme123'; // change this comment as a reminder to yourself
-const DEFAULT_PASSWORD_HASH = '494a715f7e9b4071aca61bac42ca858a309524e5864f0920030862a4ae7589be';
-const PW_OVERRIDE_KEY = 'hse_dashboard_pw_hash_v1';
-const SESSION_UNLOCK_KEY = 'hse_dashboard_unlocked_v1';
-let editMode = false;
+let currentUser = null;     // { id, email, role, display_name }
+let editMode = false;       // derived from currentUser.role !== 'Viewer'
+const EDIT_ROLES = ['Admin','Manager','Engineer','Supervisor'];
 
-async function sha256Hex(text){
-  const enc = new TextEncoder().encode(text);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-function activeHash(){
-  try{ return localStorage.getItem(PW_OVERRIDE_KEY) || DEFAULT_PASSWORD_HASH; }
-  catch(e){ return DEFAULT_PASSWORD_HASH; }
-}
-async function tryUnlock(){
-  const pw = prompt('Enter the password to enable editing:');
-  if(pw===null) return;
-  const hash = await sha256Hex(pw);
-  if(hash === activeHash()){
-    editMode = true;
-    try{ sessionStorage.setItem(SESSION_UNLOCK_KEY, '1'); }catch(e){}
-    renderLockBadge();
-    applyEditMode();
-    showToast('Editing enabled', 'ok', 2000);
-  }else{
-    alert('Incorrect password.');
+async function initAuth(){
+  if(!cloudEnabled || !supabaseClient){
+    renderAuthBadge();
+    showLoginOverlay(false); // no auth backend configured — don't block the UI
+    return;
+  }
+  try{
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if(session && session.user){ await onAuthReady(session.user); }
+    else{ showLoginOverlay(true); }
+    supabaseClient.auth.onAuthStateChange((event, session)=>{
+      if(session && session.user){ onAuthReady(session.user); }
+      else{ onSignedOut(); }
+    });
+  }catch(e){
+    showLoginOverlay(false);
   }
 }
-function lockNow(){
+
+async function onAuthReady(user){
+  currentUser = { id:user.id, email:user.email, role:'Viewer', display_name:user.email };
+  try{
+    let { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    if(!profile){
+      // Trigger may not have fired yet (fresh signup) — wait a moment and retry once.
+      await new Promise(r=>setTimeout(r, 800));
+      const retry = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
+      profile = retry.data;
+    }
+    if(profile){
+      currentUser.role = profile.role || 'Viewer';
+      currentUser.display_name = profile.display_name || user.email;
+    }
+  }catch(e){}
+  editMode = EDIT_ROLES.includes(currentUser.role);
+  showLoginOverlay(false);
+  renderAuthBadge();
+  applyEditMode();
+  renderAll();
+  logAudit('Signed in', currentUser.email);
+}
+function onSignedOut(){
+  currentUser = null;
   editMode = false;
-  try{ sessionStorage.removeItem(SESSION_UNLOCK_KEY); }catch(e){}
-  renderLockBadge();
+  showLoginOverlay(true);
+  renderAuthBadge();
   applyEditMode();
 }
-async function changePassword(){
-  if(!editMode) return;
-  const p1 = prompt('Choose a new password:');
-  if(!p1) return;
-  const p2 = prompt('Confirm the new password:');
-  if(p1 !== p2){ alert('Passwords did not match. Nothing was changed.'); return; }
-  const hash = await sha256Hex(p1);
-  try{ localStorage.setItem(PW_OVERRIDE_KEY, hash); }catch(e){}
-  alert('Password updated for this browser. Remember it — there is no recovery.');
+async function signUp(email, pw){
+  if(!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signUp({ email, password: pw });
+  if(error){ showAuthError(error.message); return; }
+  showAuthError('Account created. Check your email to confirm, then sign in (or you may be signed in automatically).', true);
 }
-function renderLockBadge(){
+async function signIn(email, pw){
+  if(!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password: pw });
+  if(error){ showAuthError(error.message); return; }
+}
+async function signOutUser(){
+  if(!supabaseClient) return;
+  await logAudit('Signed out', currentUser ? currentUser.email : '');
+  await supabaseClient.auth.signOut();
+}
+function showAuthError(msg, ok){
+  const el = document.getElementById('authError');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.color = ok ? 'var(--green-dark)' : 'var(--red)';
+}
+function showLoginOverlay(show){
+  const el = document.getElementById('authOverlay');
+  if(el) el.style.display = show ? 'flex' : 'none';
+}
+function renderAuthBadge(){
   const el = document.getElementById('lockBadge');
+  if(!el) return;
+  if(!cloudEnabled){
+    // No Supabase configured at all — there's no way for anyone to ever sign
+    // in, so don't permanently lock the whole app. Just edit freely, same as
+    // a plain local single-user file.
+    editMode = true;
+    el.className = 'lock-badge unconfigured';
+    el.innerHTML = `<span class="state">&#9998; Editing enabled (no accounts set up — set up cloud sync + run the auth SQL to enable real sign-in)</span>`;
+    return;
+  }
+  if(!currentUser){
+    el.className = 'lock-badge locked';
+    el.innerHTML = `<span class="state">&#128274; Not signed in</span>`;
+    return;
+  }
   el.className = 'lock-badge ' + (editMode ? 'unlocked' : 'locked');
-  if(editMode){
-    el.innerHTML = `
-      <span class="state">&#128275; Editing enabled</span>
-      <div class="row">
-        <button class="btn-lock" onclick="lockNow()">Lock</button>
-        <button class="btn-pw" onclick="changePassword()">Change password</button>
-      </div>`;
-  }else{
-    el.innerHTML = `
-      <span class="state">&#128274; View only</span>
-      <button class="btn-unlock" onclick="tryUnlock()">Unlock editing</button>`;
+  el.innerHTML = `
+    <span class="state">${editMode?'&#128275;':'&#128274;'} ${currentUser.display_name}</span>
+    <div class="row" style="font-size:10px;color:var(--sub);font-weight:600;margin:-2px 0 2px;">${currentUser.role}${editMode?'':' — view only'}</div>
+    <div class="row"><button class="btn-lock" onclick="signOutUser()">Sign out</button></div>`;
+}
+
+/* ---------- AUDIT LOG ---------- */
+let auditLogTimer = null;
+function logAudit(action, details){
+  if(!cloudEnabled || !supabaseClient || !currentUser) return;
+  clearTimeout(auditLogTimer);
+  auditLogTimer = setTimeout(async ()=>{
+    try{
+      await supabaseClient.from('audit_log').insert({
+        user_email: currentUser.email, action, details: (details||'').toString().slice(0,300)
+      });
+    }catch(e){}
+  }, action==='Edited dashboard data' ? 3000 : 0); // debounce noisy continuous edits, log meaningful actions immediately
+}
+async function loadAuditLog(){
+  const el = document.getElementById('auditLogList');
+  if(!el) return;
+  if(!cloudEnabled || !supabaseClient){
+    el.innerHTML = '<p class="snap-empty">Audit log needs cloud sync configured.</p>';
+    return;
+  }
+  el.innerHTML = '<p class="snap-empty">Loading…</p>';
+  try{
+    const { data: rows, error } = await supabaseClient.from('audit_log')
+      .select('*').order('created_at', {ascending:false}).limit(100);
+    if(error) throw error;
+    if(!rows || rows.length===0){ el.innerHTML = '<p class="snap-empty">No activity logged yet.</p>'; return; }
+    el.innerHTML = rows.map(r=>`
+      <div class="snap-row">
+        <span><b>${r.user_email||'unknown'}</b> — ${r.action}${r.details?' — '+r.details:''}</span>
+        <span class="src">${new Date(r.created_at).toLocaleString()}</span>
+      </div>`).join('');
+  }catch(e){
+    el.innerHTML = '<p class="snap-empty">Could not load audit log (has the SQL setup been run?).</p>';
   }
 }
+
+/* ---------- VERSION HISTORY (server-side, shared across everyone) ---------- */
+async function loadVersionHistory(){
+  const el = document.getElementById('versionHistoryList');
+  if(!el) return;
+  if(!cloudEnabled || !supabaseClient){
+    el.innerHTML = '<p class="snap-empty">Version history needs cloud sync configured.</p>';
+    return;
+  }
+  el.innerHTML = '<p class="snap-empty">Loading…</p>';
+  try{
+    const { data: rows, error } = await supabaseClient.from('data_versions')
+      .select('id,user_email,created_at').order('created_at', {ascending:false}).limit(30);
+    if(error) throw error;
+    if(!rows || rows.length===0){ el.innerHTML = '<p class="snap-empty">No versions saved yet.</p>'; return; }
+    el.innerHTML = rows.map(r=>`
+      <div class="snap-row">
+        <span>${new Date(r.created_at).toLocaleString()} — <b>${r.user_email||'unknown'}</b></span>
+        <button class="pillbtn editOnly" onclick="restoreVersion(${r.id})">Restore</button>
+      </div>`).join('');
+  }catch(e){
+    el.innerHTML = '<p class="snap-empty">Could not load version history (has the SQL setup been run?).</p>';
+  }
+}
+async function restoreVersion(id){
+  if(!editMode) return;
+  if(!confirm('Restore this version? This replaces everything currently on the dashboard for everyone.')) return;
+  try{
+    const { data: row, error } = await supabaseClient.from('data_versions').select('data').eq('id', id).maybeSingle();
+    if(error || !row) throw error || new Error('not found');
+    data = mergeWithFresh(row.data);
+    save();
+    renderAll();
+    logAudit('Restored version', 'version #'+id);
+    showToast('Version restored', 'ok');
+  }catch(e){
+    showToast('Could not restore that version', 'err');
+  }
+}
+
+function wireAuthForms(){
+  const signInBtn = document.getElementById('authSignInBtn');
+  const signUpBtn = document.getElementById('authSignUpBtn');
+  if(!signInBtn) return;
+  signInBtn.addEventListener('click', ()=>{
+    const email = document.getElementById('authEmail').value.trim();
+    const pw = document.getElementById('authPassword').value;
+    if(!email || !pw){ showAuthError('Enter your email and password.'); return; }
+    signIn(email, pw);
+  });
+  signUpBtn.addEventListener('click', ()=>{
+    const email = document.getElementById('authEmail').value.trim();
+    const pw = document.getElementById('authPassword').value;
+    if(!email || !pw){ showAuthError('Enter an email and password to create an account.'); return; }
+    if(pw.length < 6){ showAuthError('Password should be at least 6 characters.'); return; }
+    signUp(email, pw);
+  });
+}
+
 const ALWAYS_ENABLED_IDS = ['f_year','f_month','f_dept','f_loc'];
 function applyEditMode(){
   document.querySelectorAll('.main input, .main select, .main textarea').forEach(el=>{
@@ -1168,22 +1354,6 @@ function showToast(msg, type, duration){
     t.classList.add('leaving');
     setTimeout(()=>t.remove(), 250);
   }, duration);
-}
-
-let myRole = 'Admin';
-try{ myRole = localStorage.getItem('hse_my_role_v1') || 'Admin'; }catch(e){}
-function applyRoleSelect(){
-  const sel = document.getElementById('myRoleSelect');
-  if(sel) sel.value = myRole;
-}
-function wireRoleSelect(){
-  const sel = document.getElementById('myRoleSelect');
-  if(!sel) return;
-  sel.addEventListener('change', e=>{
-    myRole = e.target.value;
-    try{ localStorage.setItem('hse_my_role_v1', myRole); }catch(e){}
-    showToast('Viewing as ' + myRole + ' (label only — access is not restricted by role)', 'info', 3500);
-  });
 }
 
 function hideSkeleton(){
@@ -1468,6 +1638,61 @@ function sampleData(){
           ['Quarterly Compliance Report','Q2 2024','HSE Manager','2024-07-01']
         ]
       },
+      auditManagement: {
+        columns:['Audit Type','Date','Auditor','Key Findings','Status'],
+        rows:[
+          ['Internal','2024-05-09','HSE Team','Minor housekeeping issues in Warehouse B','Closed'],
+          ['Client Audit','2024-06-01','Client HSE Rep','—','Scheduled']
+        ]
+      },
+      competencyMatrix: {
+        columns:['Employee','Trade','Competency','Assessed Date','Status'],
+        rows:[
+          ['A. Salem','Rigger','Rigging Level 2','2024-04-10','Competent'],
+          ['B. Naser','Scaffolder','Scaffold Inspection','2024-03-22','Competent']
+        ]
+      },
+      meetingMinutes: {
+        columns:['Meeting','Date','Action Items','Responsible','Due Date'],
+        rows:[
+          ['Weekly HSE Meeting','2024-05-13','Close out CAPA-002','HSE Officer','2024-05-27']
+        ]
+      },
+      emergencyResponse: {
+        columns:['Type','Contact Name','Phone','Location / Notes'],
+        rows:[
+          ['Fire','Civil Defense','998','Nearest station 5 min away'],
+          ['Medical / Ambulance','Site Clinic','999','On-site clinic, Building A'],
+          ['Assembly Point','—','—','Main gate parking area']
+        ]
+      },
+      visitorManagement: {
+        columns:['Visitor Name','Company','Host','Time In','Time Out','Purpose'],
+        rows:[
+          ['J. Smith','Client Co.','HSE Manager','08:30','10:15','Site walk-down']
+        ]
+      },
+      assetRegister: {
+        columns:['Asset','Type','Serial Number','Assigned To','Status'],
+        rows:[
+          ['Laptop-014','Laptop','SN-88214','HSE Officer','In Use'],
+          ['Radio-002','Radio','SN-4471','Site Supervisor','In Use']
+        ]
+      },
+      equipmentRegister: {
+        columns:['Equipment','Serial Number','Inspection Date','Certificate Expiry','Status'],
+        rows:[
+          ['Mobile Crane 25T','CR-2201','2024-04-01','2024-10-01','Valid'],
+          ['Generator 100kVA','GEN-0091','2024-05-15','2024-11-15','Valid']
+        ]
+      },
+      workerDirectory: {
+        columns:['Employee','ID / IQAMA','Company','Trade','Contact'],
+        rows:[
+          ['A. Salem','2xxxxxxxxx','Contractor Co. A','Rigger','05xxxxxxxx'],
+          ['B. Naser','2xxxxxxxxx','Contractor Co. A','Scaffolder','05xxxxxxxx']
+        ]
+      },
       administration: {
         columns:['Role','Description','Access Level'],
         rows:[
@@ -1507,6 +1732,10 @@ const PAGE_TITLES = {
   trainingManagement:'Training Matrix', documentManagement:'Document Expiry',
   heatStressManagement:'Heat Stress Management', qrReporting:'QR Reporting',
   contractorScorecard:'Contractor Scorecard', riskRegister:'Risk Register',
+  auditManagement:'Audit Management', competencyMatrix:'Competency Matrix',
+  meetingMinutes:'Meeting Minutes', emergencyResponse:'Emergency Response',
+  visitorManagement:'Visitor Management', assetRegister:'Asset Register',
+  equipmentRegister:'Equipment Register', workerDirectory:'Worker Directory',
   toolboxTalks:'Toolbox Talks', auditCompliance:'Audit & Compliance', riskManagement:'Risk Management',
   environmental:'Environmental', objectivesTargets:'Objectives & Targets', kpisPerformance:'KPIs & Performance',
   actionTracker:'Action Tracker', reports:'Reports', administration:'Administration',
@@ -1612,6 +1841,7 @@ function save(){
   localHasUnsyncedChanges = true;
   flashSave();
   schedulePush();
+  logAudit('Edited dashboard data', tabLabel(currentPage));
 }
 function flashSave(){
   const n = document.getElementById('saveNote');
@@ -2191,7 +2421,7 @@ function wireFilters(){
 }
 
 /* ---------- SIDEBAR TABS (incl. Edit JSON) ---------- */
-const TAB_KEYS = ['dashboard', 'projectOverview', ...Object.keys(PAGE_TITLES).filter(k=>k!=='projectOverview'), 'analytics', 'jsonEditor'];
+const TAB_KEYS = ['dashboard', 'projectOverview', ...Object.keys(PAGE_TITLES).filter(k=>k!=='projectOverview'), 'analytics', 'auditLog', 'versionHistory', 'jsonEditor'];
 const TAB_ICONS = {
   dashboard:'&#8962;', projectOverview:'&#127959;',
   incidentManagement:'&#9888;', nearMiss:'&#128269;', observations:'&#128203;',
@@ -2199,9 +2429,13 @@ const TAB_ICONS = {
   correctiveActionTracker:'&#128295;', permitToWork:'&#128196;', trainingManagement:'&#127891;',
   documentManagement:'&#128193;', heatStressManagement:'&#127777;', qrReporting:'&#128241;',
   contractorScorecard:'&#127942;', riskRegister:'&#9888;',
+  auditManagement:'&#128203;', competencyMatrix:'&#127891;', meetingMinutes:'&#128221;',
+  emergencyResponse:'&#128680;', visitorManagement:'&#128100;', assetRegister:'&#128187;',
+  equipmentRegister:'&#128296;', workerDirectory:'&#128101;',
   toolboxTalks:'&#128172;', auditCompliance:'&#128737;', riskManagement:'&#9888;',
   environmental:'&#127811;', objectivesTargets:'&#127919;', kpisPerformance:'&#128202;',
   actionTracker:'&#9989;', reports:'&#128196;', analytics:'&#128200;', administration:'&#128100;',
+  auditLog:'&#128220;', versionHistory:'&#128337;',
   settings:'&#9881;', help:'&#10067;', jsonEditor:'&#128221;'
 };
 
@@ -2209,6 +2443,8 @@ function tabLabel(key){
   if(data.text.tabLabels[key]) return data.text.tabLabels[key];
   if(key==='dashboard') return 'Dashboard';
   if(key==='analytics') return 'Analytics';
+  if(key==='auditLog') return 'Audit Log';
+  if(key==='versionHistory') return 'Version History';
   if(key==='jsonEditor') return 'Edit JSON';
   return PAGE_TITLES[key] || key;
 }
@@ -2327,10 +2563,14 @@ function showPage(key){
   const generic = document.getElementById('page-generic');
   const jsonPage = document.getElementById('page-json');
   const analyticsPage = document.getElementById('page-analytics');
+  const auditPage = document.getElementById('page-auditlog');
+  const versionPage = document.getElementById('page-versionhistory');
   dash.style.display = 'none';
   generic.style.display = 'none';
   jsonPage.style.display = 'none';
   analyticsPage.style.display = 'none';
+  auditPage.style.display = 'none';
+  versionPage.style.display = 'none';
 
   if(key==='dashboard'){
     dash.style.display='';
@@ -2342,6 +2582,13 @@ function showPage(key){
   }else if(key==='analytics'){
     analyticsPage.style.display='';
     renderAnalyticsPage();
+  }else if(key==='auditLog'){
+    auditPage.style.display='';
+    loadAuditLog();
+  }else if(key==='versionHistory'){
+    versionPage.style.display='';
+    loadVersionHistory();
+    applyEditMode();
   }else{
     generic.style.display='';
     document.getElementById('genericTitle').textContent = tabLabel(key);
@@ -2399,6 +2646,57 @@ function flashSave2(){
   window._st2 = setTimeout(()=>{ n.style.opacity = 0; }, 900);
 }
 
+async function loadAdminUsers(){
+  const el = document.getElementById('adminUsersList');
+  if(!el) return;
+  if(!cloudEnabled || !supabaseClient){
+    el.innerHTML = '<p class="snap-empty">User accounts need cloud sync configured.</p>';
+    return;
+  }
+  try{
+    const { data: rows, error } = await supabaseClient.from('profiles').select('*').order('created_at');
+    if(error) throw error;
+    if(!rows || rows.length===0){ el.innerHTML = '<p class="snap-empty">No registered users yet.</p>'; return; }
+    const isAdmin = currentUser && currentUser.role === 'Admin';
+    el.innerHTML = rows.map(u=>`
+      <div class="snap-row">
+        <span>${u.display_name || u.email} <span class="src">${u.email}</span></span>
+        <select data-uid="${u.id}" ${isAdmin?'':'disabled'} style="font-size:11.5px;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);">
+          <option ${u.role==='Admin'?'selected':''}>Admin</option>
+          <option ${u.role==='Manager'?'selected':''}>Manager</option>
+          <option ${u.role==='Engineer'?'selected':''}>Engineer</option>
+          <option ${u.role==='Supervisor'?'selected':''}>Supervisor</option>
+          <option ${u.role==='Viewer'?'selected':''}>Viewer</option>
+        </select>
+      </div>`).join('');
+    if(!isAdmin){
+      el.innerHTML = '<p class="snap-empty" style="margin-bottom:8px;">Only Admins can change roles. Showing current roles below.</p>' + el.innerHTML;
+    }
+    el.querySelectorAll('select[data-uid]').forEach(sel=>{
+      sel.addEventListener('change', async e=>{
+        const uid = e.target.dataset.uid;
+        const newRole = e.target.value;
+        try{
+          const { error } = await supabaseClient.from('profiles').update({ role:newRole }).eq('id', uid);
+          if(error) throw error;
+          showToast('Role updated', 'ok');
+          logAudit('Changed user role', uid + ' → ' + newRole);
+          if(currentUser && currentUser.id===uid){
+            currentUser.role = newRole;
+            editMode = EDIT_ROLES.includes(newRole);
+            renderAuthBadge();
+            applyEditMode();
+          }
+        }catch(err){
+          showToast('Could not update role', 'err');
+        }
+      });
+    });
+  }catch(e){
+    el.innerHTML = '<p class="snap-empty">Could not load users (has the SQL setup been run?).</p>';
+  }
+}
+
 function renderGenericPage(key){
   const qrArea = document.getElementById('qrCodeArea');
   if(key==='qrReporting'){
@@ -2411,6 +2709,12 @@ function renderGenericPage(key){
         <div class="qr-link">${publicUrl}</div>
       </div>
     </div>`;
+  }else if(key==='administration'){
+    qrArea.innerHTML = `<div class="panel" style="margin-bottom:14px;">
+      <h3 style="margin:0 0 8px;">Registered Users</h3>
+      <div id="adminUsersList"><p class="snap-empty">Loading…</p></div>
+    </div>`;
+    loadAdminUsers();
   }else{
     qrArea.innerHTML = '';
   }
@@ -2466,16 +2770,15 @@ function renderAll(){
   renderValidationWarnings();
 }
 
-try{ editMode = sessionStorage.getItem(SESSION_UNLOCK_KEY)==='1'; }catch(e){ editMode = false; }
 applyTheme();
 applySidebarCollapse();
-renderLockBadge();
+renderAuthBadge();
+showLoginOverlay(false);
 setCloudStatus('unconfigured');
 renderAll();
 wireEditableText();
 wireFilters();
-applyRoleSelect();
-wireRoleSelect();
+wireAuthForms();
 initCloud();
 maybeShowQrPublicForm();
 setTimeout(hideSkeleton, 350);
