@@ -133,7 +133,7 @@
   button:disabled{opacity:.3;cursor:not-allowed;}
   input:disabled, select:disabled, textarea:disabled{opacity:.7;cursor:default;background:rgba(120,120,120,.08);}
 
-  .filters{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px;margin-bottom:14px;}
+  .filters{display:grid;grid-template-columns:repeat(5,1fr) auto;gap:10px;margin-bottom:14px;}
   .field{background:var(--card-glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--border);border-radius:9px;padding:6px 12px;box-shadow:var(--shadow);}
   .field label{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:1px;}
   .editListBtn{border:none;background:none;color:var(--blue);cursor:pointer;font-size:11px;padding:0 0 0 6px;}
@@ -142,7 +142,13 @@
   .field select:focus, .field input:focus{outline:none;}
   .refresh-btn{background:linear-gradient(90deg,var(--green-dark),var(--green));color:#fff;border:none;border-radius:9px;padding:0 16px;font-size:13px;font-weight:700;cursor:pointer;}
 
-  .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-bottom:14px;}
+  .kpi-card.kpi-critical{
+    background:linear-gradient(135deg,rgba(224,36,36,.14),rgba(17,17,17,.10));
+    border:1.5px solid var(--red);
+    animation:cardIn .35s ease both, criticalPulse 2s ease-in-out infinite;
+  }
+  @keyframes criticalPulse{0%,100%{box-shadow:0 0 0 0 rgba(224,36,36,.25);}50%{box-shadow:0 0 0 6px rgba(224,36,36,0);}}
   .kpi-card{
     background:var(--card-glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
     border:1px solid var(--border);border-radius:var(--radius);padding:12px 11px;box-shadow:var(--shadow);
@@ -477,6 +483,9 @@
       <div class="field"><label>Location <button class="editListBtn editOnly" data-optkey="locations" data-selid="f_loc" title="Edit list of locations">&#9998;</button></label>
         <select id="f_loc"></select>
       </div>
+      <div class="field"><label>Contractor <button class="editListBtn editOnly" data-optkey="contractors" data-selid="f_contractor" title="Edit list of contractors">&#9998;</button></label>
+        <select id="f_contractor"></select>
+      </div>
       <button class="refresh-btn editOnly" onclick="resetToZero()">&#8635; Refresh Data</button>
     </div>
 
@@ -596,6 +605,9 @@
         <button class="pillbtn dark editOnly" onclick="addGenericRow()">+ Add Row</button>
       </div>
     </div>
+    <div id="moduleRestrictedNotice" style="display:none;background:rgba(245,180,0,.12);border:1px solid rgba(245,180,0,.4);color:#9a5b00;border-radius:9px;padding:9px 14px;font-size:12px;font-weight:600;margin-bottom:12px;">
+      &#128274; Your role can view this module but can't edit it. Ask an Admin or Manager if you need changes made here.
+    </div>
     <div id="qrCodeArea"></div>
     <div class="panel">
       <table class="risk-table" id="genericTable" style="text-align:left;"></table>
@@ -691,6 +703,13 @@
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const STORAGE_KEY = 'hse_dashboard_data_v1';
+// Known column renames (not just additions) used during page migration —
+// declared early since load() (called near the top of the script) depends
+// on it via mergeWithFresh() / migratePageColumns().
+const COLUMN_RENAME_ALIASES = {
+  auditCompliance: { 'Audit': 'Audit Type' },
+  trainingManagement: { 'Course': 'Course / Competency' }
+};
 
 /* ============ CLOUD SYNC (Supabase) ============
    This lets everyone who opens this file (e.g. via the QR code) see the
@@ -1040,18 +1059,77 @@ function renderAuthBadge(){
 }
 
 /* ---------- AUDIT LOG ---------- */
-let auditLogTimer = null;
-function logAudit(action, details){
+let auditDebounceTimers = {};
+function logAudit(action, details, debounceKey){
   if(!cloudEnabled || !supabaseClient || !currentUser) return;
-  clearTimeout(auditLogTimer);
-  auditLogTimer = setTimeout(async ()=>{
+  const write = async ()=>{
     try{
       await supabaseClient.from('audit_log').insert({
         user_email: currentUser.email, action, details: (details||'').toString().slice(0,300)
       });
     }catch(e){}
-  }, action==='Edited dashboard data' ? 3000 : 0); // debounce noisy continuous edits, log meaningful actions immediately
+  };
+  if(debounceKey){
+    clearTimeout(auditDebounceTimers[debounceKey]);
+    auditDebounceTimers[debounceKey] = setTimeout(write, 1500);
+  }else{
+    write();
+  }
 }
+
+/* ---------- FIELD-LEVEL CHANGE TRACKING ----------
+   Generic capture-on-focus / compare-on-change so the audit log records
+   WHAT changed (old value -> new value) and roughly WHERE, not just "data
+   was edited somewhere". Works across KPI fields, generic table cells,
+   donut/bar legend inputs, and the risk matrix without needing a bespoke
+   handler wired into every single input individually.
+*/
+const fieldBeforeValues = new WeakMap();
+function describeField(el){
+  const page = tabLabel(currentPage);
+  // Generic table cell (Incident Management, NCR, etc.)
+  if(el.dataset.r !== undefined && el.dataset.c !== undefined && el.closest('#genericTable')){
+    const table = document.getElementById('genericTable');
+    const headerCells = table.querySelectorAll('tr:first-child th');
+    const col = headerCells[+el.dataset.c] ? headerCells[+el.dataset.c].textContent : 'field';
+    const rowInputs = table.querySelectorAll(`tr:nth-child(${+el.dataset.r+2}) input`);
+    const rowId = rowInputs[0] ? rowInputs[0].value : ('row '+(+el.dataset.r+1));
+    return `${page} — "${rowId}" — ${col}`;
+  }
+  // KPI card value/delta
+  if(el.classList.contains('kpi-value-in') || el.closest('.kpi-card')){
+    const label = el.closest('.kpi-card')?.querySelector('.kpi-label')?.textContent || 'KPI';
+    return `${page} — ${label}`;
+  }
+  // Donut/bar legend items (Incident by Type, Actions by Status, Top Locations, Time & Incident Tracker)
+  if(el.dataset.idx !== undefined){
+    const row = el.closest('li, .bar-row');
+    const name = row?.querySelector('.name, .label-text, .lbl')?.textContent?.trim();
+    return `${page} — ${name || 'item'}`;
+  }
+  // Risk matrix cell
+  if(el.closest('.risk-cell')){
+    return `${page} — Risk Matrix cell`;
+  }
+  return page;
+}
+document.addEventListener('focusin', e=>{
+  const el = e.target;
+  if(el.matches && el.matches('.main input, .main select, .main textarea') && el.id!=='jsonTextarea'){
+    fieldBeforeValues.set(el, el.value);
+  }
+});
+document.addEventListener('change', e=>{
+  const el = e.target;
+  if(!(el.matches && el.matches('.main input, .main select, .main textarea'))) return;
+  if(el.id==='jsonTextarea' || ALWAYS_ENABLED_IDS.includes(el.id)) return;
+  const before = fieldBeforeValues.get(el);
+  if(before === undefined || before === el.value) return;
+  const desc = describeField(el);
+  logAudit('Changed value', `${desc}: "${before}" \u2192 "${el.value}"`, desc);
+  fieldBeforeValues.set(el, el.value);
+});
+
 async function loadAuditLog(){
   const el = document.getElementById('auditLogList');
   if(!el) return;
@@ -1133,18 +1211,43 @@ function wireAuthForms(){
   });
 }
 
-const ALWAYS_ENABLED_IDS = ['f_year','f_month','f_dept','f_loc'];
+const ALWAYS_ENABLED_IDS = ['f_year','f_month','f_dept','f_loc','f_contractor'];
+
+// Module-level access control: which roles can EDIT a given tab, beyond just
+// being generally edit-capable. Anything not listed here defaults to "any
+// edit-capable role" (Admin/Manager/Engineer/Supervisor). Viewer can never
+// edit anything, on any page, regardless of this list.
+const MODULE_EDIT_ROLES = {
+  administration: ['Admin'],
+  contractorScorecard: ['Admin','Manager'],
+  settings: ['Admin','Manager'],
+  jsonEditor: ['Admin','Manager'],
+  versionHistory: ['Admin','Manager']
+};
+function isPageEditableByCurrentUser(pageKey){
+  const allowed = MODULE_EDIT_ROLES[pageKey];
+  if(!allowed) return true; // no special restriction on this module
+  if(!currentUser) return false;
+  return allowed.includes(currentUser.role);
+}
+
 function applyEditMode(){
+  const pageAllowed = isPageEditableByCurrentUser(currentPage);
+  const canEditNow = editMode && pageAllowed;
   document.querySelectorAll('.main input, .main select, .main textarea').forEach(el=>{
     if(el.id==='importFile' || ALWAYS_ENABLED_IDS.includes(el.id)) return;
-    el.disabled = !editMode;
+    el.disabled = !canEditNow;
   });
   document.querySelectorAll('.computed-kpi').forEach(el=>{ el.disabled = true; }); // never user-editable
   document.querySelectorAll('#page-dashboard [contenteditable], #page-generic [contenteditable], #brandNameText, #userName, #userRole').forEach(el=>{
-    el.contentEditable = editMode ? 'true' : 'false';
+    el.contentEditable = canEditNow ? 'true' : 'false';
   });
-  document.querySelectorAll('.editOnly').forEach(el=>{ el.disabled = !editMode; });
-  document.querySelectorAll('.delRowBtn').forEach(el=>{ el.disabled = !editMode; });
+  document.querySelectorAll('.editOnly').forEach(el=>{ el.disabled = !canEditNow; });
+  document.querySelectorAll('.delRowBtn').forEach(el=>{ el.disabled = !canEditNow; });
+  const notice = document.getElementById('moduleRestrictedNotice');
+  if(notice){
+    notice.style.display = (editMode && !pageAllowed) ? 'block' : 'none';
+  }
 }
 
 /* ---------- VALIDATION WARNINGS ---------- */
@@ -1193,6 +1296,7 @@ function renderValidationWarnings(){
 function blankPeriod(){
   return {
     kpis: [
+      {icon:'&#128128;', color:'#111111', label:'Fatalities', value:0, delta:0, dir:'down', computed:'fatalities', critical:true},
       {icon:'&#128101;', color:'#1f4fd8', label:'Total Incidents', value:0, delta:0, dir:'down', computed:'incidentByType'},
       {icon:'&#9888;', color:'#f2711c', label:'Near Miss', value:0, delta:0, dir:'down'},
       {icon:'&#128203;', color:'#1b8a2f', label:'Inspection Score', value:0, suffix:'%', delta:0, dir:'up'},
@@ -1203,6 +1307,7 @@ function blankPeriod(){
     incidentTrend2023: [0,0,0,0,0,0,0,0,0,0,0,0],
     incidentTrend2024: ['','','','','','','','','','','',''],
     incidentByType: [
+      {label:'Fatality', value:0, color:'#111111'},
       {label:'Medical Treatment', value:0, color:'#1f4fd8'},
       {label:'First Aid', value:0, color:'#1b8a2f'},
       {label:'Restricted Work', value:0, color:'#f2711c'},
@@ -1249,16 +1354,18 @@ function defaultSeededPeriod(){
   // isn't blank on first use. Every other Year/Month/Dept/Location combo
   // starts as a clean blankPeriod() until someone enters data for it.
   const p = blankPeriod();
-  p.kpis[0].value = 12; p.kpis[0].delta = 20;
-  p.kpis[1].value = 5;  p.kpis[1].delta = 28;
-  p.kpis[2].value = 98; p.kpis[2].delta = 8;
-  p.kpis[3].value = 92; p.kpis[3].delta = 6;
-  p.kpis[4].value = 100;p.kpis[4].delta = 5;
-  p.kpis[5].value = 15; p.kpis[5].delta = 12;
+  // kpis[0] = Fatalities (computed, stays 0 — no fatalities in the demo data)
+  p.kpis[1].value = 12; p.kpis[1].delta = 20;  // Total Incidents (computed anyway)
+  p.kpis[2].value = 5;  p.kpis[2].delta = 28;  // Near Miss
+  p.kpis[3].value = 98; p.kpis[3].delta = 8;   // Inspection Score
+  p.kpis[4].value = 92; p.kpis[4].delta = 6;   // Training Completion
+  p.kpis[5].value = 100;p.kpis[5].delta = 5;   // Environmental Compliance
+  p.kpis[6].value = 15; p.kpis[6].delta = 12;  // Open Actions (computed anyway)
   p.incidentTrend2023 = [3,6,8,9,12,18,20,25,19,19,15,10];
   p.incidentTrend2024 = [8,7,10,12,14,13,'','','','','',''];
-  p.incidentByType[0].value = 4; p.incidentByType[1].value = 3; p.incidentByType[2].value = 2;
-  p.incidentByType[3].value = 2; p.incidentByType[4].value = 1;
+  // incidentByType[0] = Fatality, stays 0 in the demo data
+  p.incidentByType[1].value = 4; p.incidentByType[2].value = 3; p.incidentByType[3].value = 2;
+  p.incidentByType[4].value = 2; p.incidentByType[5].value = 1;
   p.locations[0].value = 5; p.locations[1].value = 3; p.locations[2].value = 2;
   p.locations[3].value = 1; p.locations[4].value = 1;
   p.scoreVal = [80,78,82,79,83,81,84,82,83,85,86,84];
@@ -1278,10 +1385,10 @@ function defaultSeededPeriod(){
   p.compliance = {compliant:50, nonCompliant:1};
   return p;
 }
-const DEFAULT_FILTER_SELECTED = { year:'2024', month:'May', department:'All', location:'All' };
+const DEFAULT_FILTER_SELECTED = { year:'2024', month:'May', department:'All', location:'All', contractor:'All' };
 function periodKey(sel){
   sel = sel || DEFAULT_FILTER_SELECTED;
-  return [sel.year, sel.month, sel.department, sel.location].join('|');
+  return [sel.year, sel.month, sel.department, sel.location, sel.contractor||'All'].join('|');
 }
 
 /* ---------- QR PUBLIC REPORTING (no login/unlock needed) ---------- */
@@ -1397,13 +1504,13 @@ function computeLiveAlerts(){
   // Closed/Completed/Approved/Valid, that row is skipped.
   const CLOSED_WORDS = ['closed','completed','approved','valid','done'];
   const sources = [
-    {key:'permitToWork', label:'Permit to Work'},
     {key:'trainingManagement', label:'Training Matrix'},
     {key:'documentManagement', label:'Document Expiry'},
     {key:'correctiveActionTracker', label:'Corrective Action'},
     {key:'inspections', label:'Inspection'},
     {key:'ncrManagement', label:'NCR'},
-    {key:'scirTracker', label:'SCIR'}
+    {key:'scirTracker', label:'SCIR'},
+    {key:'auditCompliance', label:'Audit & Compliance'}
   ];
   const alerts = [];
   sources.forEach(src=>{
@@ -1430,12 +1537,20 @@ function computeLiveAlerts(){
 function renderLiveAlertCenter(){
   const el = document.getElementById('liveAlertCenter');
   if(!el) return;
+  const fatalCount = parseFloat((activePeriod().incidentByType.find(x=>x.label==='Fatality')||{}).value) || 0;
+  const criticalBanner = fatalCount > 0 ? `
+    <div class="alert-panel" style="border:2px solid var(--red);background:rgba(224,36,36,.1);margin-bottom:10px;">
+      <h3 style="color:var(--red);">&#128680; CRITICAL: ${fatalCount} Fatalit${fatalCount===1?'y':'ies'} recorded for this period</h3>
+      <div class="alert-empty" style="color:var(--red);font-weight:600;">
+        This requires immediate executive notification and a formal investigation per your incident management procedure. This is not a routine metric.
+      </div>
+    </div>` : '';
   const alerts = computeLiveAlerts();
   if(alerts.length===0){
-    el.innerHTML = `<div class="alert-panel"><h3>&#128276; Live Alert Center</h3><div class="alert-empty">No overdue or upcoming items in the next 7 days. Nice.</div></div>`;
+    el.innerHTML = criticalBanner + `<div class="alert-panel"><h3>&#128276; Live Alert Center</h3><div class="alert-empty">No overdue or upcoming items in the next 7 days. Nice.</div></div>`;
     return;
   }
-  el.innerHTML = `<div class="alert-panel"><h3>&#128276; Live Alert Center <span style="font-weight:400;color:var(--sub);font-size:10.5px;">(${alerts.length})</span></h3>
+  el.innerHTML = criticalBanner + `<div class="alert-panel"><h3>&#128276; Live Alert Center <span style="font-weight:400;color:var(--sub);font-size:10.5px;">(${alerts.length})</span></h3>
     <ul class="alert-list">${alerts.map(a=>`<li class="alert-item ${a.level}">${a.level==='overdue'?'&#9888;':'&#8987;'} ${a.text}<span class="src">${a.src}</span></li>`).join('')}</ul>
   </div>`;
 }
@@ -1448,7 +1563,8 @@ function sampleData(){
     filterOptions: {
       years: ['2023','2024','2025','2026'],
       departments: ['All','Operations','Maintenance','Warehouse','Construction'],
-      locations: ['All','Plant Area 1','Warehouse','Construction Site','Office','Workshop']
+      locations: ['All','Plant Area 1','Warehouse','Construction Site','Office','Workshop'],
+      contractors: ['All','Contractor Co. A','Contractor Co. B']
     },
     text: {
       title: 'COMPLETE <span class="accent">HSE</span> DASHBOARD',
@@ -1501,11 +1617,11 @@ function sampleData(){
         ]
       },
       incidentManagement: {
-        columns:['Date','Location','Type','Severity','Status'],
+        columns:['Date','Location','Type','Severity','Immediate Cause','Root Cause','Corrective Action','Preventive Action','Verified Effective','Status'],
         rows:[
-          ['2024-05-02','Plant Area 1','Medical Treatment','High','Closed'],
-          ['2024-05-08','Warehouse','First Aid','Low','Closed'],
-          ['2024-05-14','Construction Site','Lost Time Injury','High','Open']
+          ['2024-05-02','Plant Area 1','Medical Treatment','High','Worker not wearing cut-resistant gloves','Glove policy not enforced at task level','Re-briefed crew, gloves mandatory for this task','Add task to PPE matrix; toolbox talk scheduled','Yes','Closed'],
+          ['2024-05-08','Warehouse','First Aid','Low','Slipped on wet floor','Spill not cleaned promptly / no wet-floor sign','Floor cleaned, signage placed','Add spill-response step to housekeeping checklist','Yes','Closed'],
+          ['2024-05-14','Construction Site','Lost Time Injury','High','Fall from unguarded edge','Edge protection not installed before work started','Area barricaded, work stopped pending edge protection','Update permit checklist to verify edge protection before work-start sign-off','Pending','Open']
         ]
       },
       nearMiss: {
@@ -1544,25 +1660,21 @@ function sampleData(){
         ]
       },
       correctiveActionTracker: {
-        columns:['Action No','Description','Priority','Owner','Due Date','Status'],
+        columns:['Action No','Description','Priority','Owner','Due Date','Completion %','Status'],
         rows:[
-          ['CAPA-001','Install additional lighting in Warehouse B','High','Facilities','2024-06-05','In Progress'],
-          ['CAPA-002','Update confined space entry procedure','Medium','HSE Officer','2024-06-10','Open']
-        ]
-      },
-      permitToWork: {
-        columns:['Permit ID','Type','Location','Requested By','Status'],
-        rows:[
-          ['PTW-2401','Hot Work','Workshop','K. Zaid','Approved'],
-          ['PTW-2402','Confined Space','Plant Area 1','R. Fahad','Pending']
+          ['CAPA-001','Install additional lighting in Warehouse B','High','Facilities','2024-06-05','40','In Progress'],
+          ['CAPA-002','Update confined space entry procedure','Medium','HSE Officer','2024-06-10','0','Open'],
+          ['CAPA-003','Repair warehouse lighting','Medium','Facilities','2024-06-05','60','In Progress']
         ]
       },
       trainingManagement: {
-        columns:['Employee','Course','Date','Status'],
+        columns:['Employee','Trade','Course / Competency','Date','Status'],
         rows:[
-          ['A. Salem','Fire Safety','2024-05-04','Completed'],
-          ['B. Naser','First Aid Refresher','2024-05-12','Completed'],
-          ['C. Yusuf','Working at Heights','2024-05-20','Pending']
+          ['A. Salem','Rigger','Fire Safety','2024-05-04','Completed'],
+          ['B. Naser','Scaffolder','First Aid Refresher','2024-05-12','Completed'],
+          ['C. Yusuf','Electrician','Working at Heights','2024-05-20','Pending'],
+          ['A. Salem','Rigger','Rigging Level 2','2024-04-10','Completed'],
+          ['B. Naser','Scaffolder','Scaffold Inspection','2024-03-22','Completed']
         ]
       },
       documentManagement: {
@@ -1608,17 +1720,11 @@ function sampleData(){
         ]
       },
       auditCompliance: {
-        columns:['Audit','Date','Auditor','Score (%)','Status'],
+        columns:['Audit Type','Date','Auditor','Score (%)','Key Findings','Status'],
         rows:[
-          ['Internal HSE Audit','2024-05-09','External Auditor Co.','94','Completed'],
-          ['ISO 45001 Surveillance','2024-05-22','Cert Body','—','Scheduled']
-        ]
-      },
-      riskManagement: {
-        columns:['Risk','Category','Likelihood','Consequence','Owner'],
-        rows:[
-          ['Fall from height','Safety','3','4','Site Manager'],
-          ['Chemical spill','Environmental','2','4','HSE Officer']
+          ['Internal HSE Audit','2024-05-09','External Auditor Co.','94','Minor housekeeping issues in Warehouse B','Completed'],
+          ['ISO 45001 Surveillance','2024-05-22','Cert Body','—','—','Scheduled'],
+          ['Client Audit','2024-06-01','Client HSE Rep','—','—','Scheduled']
         ]
       },
       environmental: {
@@ -1642,32 +1748,11 @@ function sampleData(){
           ['Training Completion','95%','92%','At Risk']
         ]
       },
-      actionTracker: {
-        columns:['Action','Owner','Due Date','Status'],
-        rows:[
-          ['Repair warehouse lighting','Facilities','2024-06-05','In Progress'],
-          ['Update PTW procedure','HSE Officer','2024-06-10','Open']
-        ]
-      },
       reports: {
         columns:['Report Name','Period','Generated By','Date'],
         rows:[
           ['Monthly HSE Report','May 2024','HSE Manager','2024-06-01'],
           ['Quarterly Compliance Report','Q2 2024','HSE Manager','2024-07-01']
-        ]
-      },
-      auditManagement: {
-        columns:['Audit Type','Date','Auditor','Key Findings','Status'],
-        rows:[
-          ['Internal','2024-05-09','HSE Team','Minor housekeeping issues in Warehouse B','Closed'],
-          ['Client Audit','2024-06-01','Client HSE Rep','—','Scheduled']
-        ]
-      },
-      competencyMatrix: {
-        columns:['Employee','Trade','Competency','Assessed Date','Status'],
-        rows:[
-          ['A. Salem','Rigger','Rigging Level 2','2024-04-10','Competent'],
-          ['B. Naser','Scaffolder','Scaffold Inspection','2024-03-22','Competent']
         ]
       },
       meetingMinutes: {
@@ -1688,20 +1773,6 @@ function sampleData(){
         columns:['Visitor Name','Company','Host','Time In','Time Out','Purpose'],
         rows:[
           ['J. Smith','Client Co.','HSE Manager','08:30','10:15','Site walk-down']
-        ]
-      },
-      assetRegister: {
-        columns:['Asset','Type','Serial Number','Assigned To','Status'],
-        rows:[
-          ['Laptop-014','Laptop','SN-88214','HSE Officer','In Use'],
-          ['Radio-002','Radio','SN-4471','Site Supervisor','In Use']
-        ]
-      },
-      equipmentRegister: {
-        columns:['Equipment','Serial Number','Inspection Date','Certificate Expiry','Status'],
-        rows:[
-          ['Mobile Crane 25T','CR-2201','2024-04-01','2024-10-01','Valid'],
-          ['Generator 100kVA','GEN-0091','2024-05-15','2024-11-15','Valid']
         ]
       },
       workerDirectory: {
@@ -1746,17 +1817,15 @@ const PAGE_TITLES = {
   projectOverview:'Project Overview',
   incidentManagement:'Incident Management', nearMiss:'Near Miss', observations:'Safety Observation',
   inspections:'Inspection Management', ncrManagement:'NCR Management', scirTracker:'SCIR Tracker',
-  correctiveActionTracker:'Corrective Action Tracker', permitToWork:'Permit to Work',
+  correctiveActionTracker:'Corrective Action Tracker',
   trainingManagement:'Training Matrix', documentManagement:'Document Expiry',
   heatStressManagement:'Heat Stress Management', qrReporting:'QR Reporting',
   contractorScorecard:'Contractor Scorecard', riskRegister:'Risk Register',
-  auditManagement:'Audit Management', competencyMatrix:'Competency Matrix',
   meetingMinutes:'Meeting Minutes', emergencyResponse:'Emergency Response',
-  visitorManagement:'Visitor Management', assetRegister:'Asset Register',
-  equipmentRegister:'Equipment Register', workerDirectory:'Worker Directory',
-  toolboxTalks:'Toolbox Talks', auditCompliance:'Audit & Compliance', riskManagement:'Risk Management',
+  visitorManagement:'Visitor Management', workerDirectory:'Worker Directory',
+  toolboxTalks:'Toolbox Talks', auditCompliance:'Audit & Compliance',
   environmental:'Environmental', objectivesTargets:'Objectives & Targets', kpisPerformance:'KPIs & Performance',
-  actionTracker:'Action Tracker', reports:'Reports', administration:'Administration',
+  reports:'Reports', administration:'Administration',
   settings:'Settings', help:'Help'
 };
 let currentPage = 'dashboard';
@@ -1829,6 +1898,25 @@ function migrateOldFlatFormat(saved){
   };
 }
 
+function migratePageColumns(freshPage, savedPage, pageKey){
+  // Realigns an old saved table to the current column layout by matching
+  // column NAMES, not raw position — critical when a new column is inserted
+  // in the middle (e.g. adding "Completion %" before "Status") rather than
+  // just appended at the end, which would otherwise silently shift old
+  // values under the wrong header.
+  if(!savedPage) return { columns: freshPage.columns.slice(), rows: [] };
+  const aliases = COLUMN_RENAME_ALIASES[pageKey] || {};
+  const oldCols = (savedPage.columns || []).map(c => aliases[c] || c);
+  const newCols = freshPage.columns;
+  const sameShape = oldCols.length === newCols.length && oldCols.every((c,i)=>c===newCols[i]);
+  if(sameShape) return savedPage;
+  const newRows = (savedPage.rows||[]).map(oldRow=>{
+    const byName = {};
+    oldCols.forEach((c,i)=>{ byName[c] = oldRow[i]; });
+    return newCols.map(c => byName.hasOwnProperty(c) ? byName[c] : '');
+  });
+  return { columns: newCols.slice(), rows: newRows };
+}
 function mergeWithFresh(saved){
   const fresh = sampleData();
   saved = migrateOldFlatFormat(saved);
@@ -1837,9 +1925,19 @@ function mergeWithFresh(saved){
   Object.keys(saved.periods || {}).forEach(key=>{
     mergedPeriods[key] = mergePeriodWithTemplate(saved.periods[key]);
   });
+  const mergedPages = {};
+  Object.keys(fresh.pages).forEach(key=>{
+    mergedPages[key] = migratePageColumns(fresh.pages[key], saved.pages && saved.pages[key], key);
+  });
+  // Preserve data from modules that were removed/consolidated (e.g. old PTW,
+  // the old separate Risk Management / Audit Management / Action Tracker) —
+  // it's not deleted, just no longer shown as its own tab.
+  Object.keys(saved.pages||{}).forEach(key=>{
+    if(!mergedPages[key]) mergedPages[key] = saved.pages[key];
+  });
   return {
     periods: mergedPeriods,
-    pages: Object.assign({}, fresh.pages, saved.pages||{}),
+    pages: mergedPages,
     text: Object.assign({}, fresh.text, saved.text||{}, {
       banner: (saved.text && saved.text.banner) ? saved.text.banner : fresh.text.banner,
       tabLabels: Object.assign({}, fresh.text.tabLabels, (saved.text && saved.text.tabLabels)||{})
@@ -1859,7 +1957,6 @@ function save(){
   localHasUnsyncedChanges = true;
   flashSave();
   schedulePush();
-  logAudit('Edited dashboard data', tabLabel(currentPage));
 }
 function flashSave(){
   const n = document.getElementById('saveNote');
@@ -1870,6 +1967,7 @@ function flashSave(){
 function resetData(){
   if(confirm('Reset all values back to the sample data? This clears your edits.')){
     pushSnapshot('Before Reset Sample Data');
+    logAudit('Reset Sample Data', 'Restored all data to defaults');
     data = sampleData();
     filterSelected = Object.assign({}, DEFAULT_FILTER_SELECTED);
     saveFilterSelected();
@@ -1883,6 +1981,7 @@ function resetToZero(){
   if(!confirm(`This sets every number on the dashboard to 0 for the currently selected period (${label}) only. Other periods and the tab tables (Incident Management, Near Miss, etc.) are not affected. This cannot be undone. Continue?`)) return;
 
   pushSnapshot('Before Refresh Data reset');
+  logAudit('Refresh Data (reset to zero)', label);
   activePeriod().kpis.forEach(k=>{ k.value = 0; k.delta = 0; });
   activePeriod().incidentTrend2023 = activePeriod().incidentTrend2023.map(()=>0);
   activePeriod().incidentTrend2024 = activePeriod().incidentTrend2024.map(()=>0);
@@ -1972,6 +2071,7 @@ function importData(evt){
   reader.onload = e=>{
     try{
       pushSnapshot('Before Import');
+      logAudit('Imported Dashboard file', file.name);
       data = mergeWithFresh(JSON.parse(e.target.result));
       save();
       renderAll();
@@ -2008,7 +2108,10 @@ function riskColor(v){
 /* ---------- KPI CARDS ---------- */
 function syncComputedKpis(){
   activePeriod().kpis.forEach(k=>{
-    if(k.computed==='incidentByType'){
+    if(k.computed==='fatalities'){
+      const fatalItem = activePeriod().incidentByType.find(x=>x.label==='Fatality');
+      k.value = fatalItem ? (parseFloat(fatalItem.value)||0) : 0;
+    }else if(k.computed==='incidentByType'){
       k.value = activePeriod().incidentByType.reduce((s,x)=>s+(parseFloat(x.value)||0),0);
     }else if(k.computed==='actionsOpen'){
       // "Open Actions" mirrors just the Open-status count (first row of Actions by Status),
@@ -2025,9 +2128,11 @@ function renderKpis(){
   grid.innerHTML = '';
   activePeriod().kpis.forEach((k,i)=>{
     const card = document.createElement('div');
-    card.className = 'kpi-card';
+    const isCriticalActive = k.critical && (parseFloat(k.value)||0) > 0;
+    card.className = 'kpi-card' + (isCriticalActive ? ' kpi-critical' : '');
     const isComputed = !!k.computed;
-    const computedTitle = isComputed ? `title="Auto-calculated from ${k.computed==='incidentByType' ? 'Incident by Type' : 'Actions by Status'} below \u2014 edit the values there instead"` : '';
+    const computedSource = k.computed==='fatalities' ? 'Incident by Type (Fatality)' : k.computed==='incidentByType' ? 'Incident by Type' : 'Actions by Status';
+    const computedTitle = isComputed ? `title="Auto-calculated from ${computedSource} below \u2014 edit the values there instead"` : '';
     card.innerHTML = `
       <div class="kpi-top">
         <span class="kpi-icon" style="color:${k.color};">${k.icon}</span>
@@ -2335,12 +2440,16 @@ function renderRiskMatrix(){
 function syncComputedEnvironmental(){
   const p = activePeriod();
   const byLabel = (arr, label) => arr.find(x=>x.label===label);
-  const recordableLabels = ['Medical Treatment','Restricted Work','Lost Time Injury'];
+  // Fatalities are the most severe recordable/lost-time event and are
+  // included in both counts per standard OSHA/ISO 45001 convention —
+  // they must never be silently dropped from the rate calculations.
+  const recordableLabels = ['Fatality','Medical Treatment','Restricted Work','Lost Time Injury'];
   const recordableCases = p.incidentByType
     .filter(x=>recordableLabels.includes(x.label))
     .reduce((s,x)=>s+(parseFloat(x.value)||0),0);
   const ltiItem = byLabel(p.incidentByType, 'Lost Time Injury');
-  const lostTimeInjuries = ltiItem ? (parseFloat(ltiItem.value)||0) : 0;
+  const fatalItem = byLabel(p.incidentByType, 'Fatality');
+  const lostTimeInjuries = (ltiItem ? (parseFloat(ltiItem.value)||0) : 0) + (fatalItem ? (parseFloat(fatalItem.value)||0) : 0);
   const manHoursItem = byLabel(p.environmental, 'Total Man Hours');
   const manHours = manHoursItem ? (parseFloat(manHoursItem.value)||0) : 0;
 
@@ -2401,6 +2510,7 @@ function renderFilters(){
   populateSelect('f_month', MONTHS, filterSelected.month);
   populateSelect('f_dept', data.filterOptions.departments, filterSelected.department);
   populateSelect('f_loc', data.filterOptions.locations, filterSelected.location);
+  populateSelect('f_contractor', data.filterOptions.contractors, filterSelected.contractor);
 }
 function wireFilters(){
   const bind = (id, key)=>{
@@ -2415,12 +2525,13 @@ function wireFilters(){
     });
   };
   bind('f_year','year'); bind('f_month','month'); bind('f_dept','department'); bind('f_loc','location');
+  bind('f_contractor','contractor');
 
   document.querySelectorAll('.editListBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       if(!editMode) return;
-      const optKey = btn.dataset.optkey;   // years | departments | locations
-      const selKey = {years:'year', departments:'department', locations:'location'}[optKey];
+      const optKey = btn.dataset.optkey;   // years | departments | locations | contractors
+      const selKey = {years:'year', departments:'department', locations:'location', contractors:'contractor'}[optKey];
       const current = data.filterOptions[optKey].join(', ');
       const input = prompt(`Edit the list (comma-separated):`, current);
       if(input===null) return;
@@ -2444,15 +2555,15 @@ const TAB_ICONS = {
   dashboard:'&#8962;', projectOverview:'&#127959;',
   incidentManagement:'&#9888;', nearMiss:'&#128269;', observations:'&#128203;',
   inspections:'&#9989;', ncrManagement:'&#128683;', scirTracker:'&#128226;',
-  correctiveActionTracker:'&#128295;', permitToWork:'&#128196;', trainingManagement:'&#127891;',
+  correctiveActionTracker:'&#128295;', trainingManagement:'&#127891;',
   documentManagement:'&#128193;', heatStressManagement:'&#127777;', qrReporting:'&#128241;',
   contractorScorecard:'&#127942;', riskRegister:'&#9888;',
-  auditManagement:'&#128203;', competencyMatrix:'&#127891;', meetingMinutes:'&#128221;',
-  emergencyResponse:'&#128680;', visitorManagement:'&#128100;', assetRegister:'&#128187;',
-  equipmentRegister:'&#128296;', workerDirectory:'&#128101;',
-  toolboxTalks:'&#128172;', auditCompliance:'&#128737;', riskManagement:'&#9888;',
+  meetingMinutes:'&#128221;',
+  emergencyResponse:'&#128680;', visitorManagement:'&#128100;',
+  workerDirectory:'&#128101;',
+  toolboxTalks:'&#128172;', auditCompliance:'&#128737;',
   environmental:'&#127811;', objectivesTargets:'&#127919;', kpisPerformance:'&#128202;',
-  actionTracker:'&#9989;', reports:'&#128196;', analytics:'&#128200;', administration:'&#128100;',
+  reports:'&#128196;', analytics:'&#128200;', administration:'&#128100;',
   auditLog:'&#128220;', versionHistory:'&#128337;',
   settings:'&#9881;', help:'&#10067;', jsonEditor:'&#128221;'
 };
@@ -2635,6 +2746,7 @@ function applyJsonTextarea(){
     alert('That is not valid JSON:\n' + e.message);
     return;
   }
+  logAudit('Applied JSON edit', 'Bulk edit via the Edit JSON tab');
   data = mergeWithFresh(parsed);
   save();
   renderAll();
@@ -2733,12 +2845,21 @@ function renderGenericPage(key){
       <div id="adminUsersList"><p class="snap-empty">Loading…</p></div>
     </div>`;
     loadAdminUsers();
+  }else if(['ncrManagement','scirTracker','correctiveActionTracker'].includes(key)){
+    qrArea.innerHTML = `<div style="background:rgba(31,111,216,.08);border:1px solid rgba(31,111,216,.3);color:var(--blue);border-radius:9px;padding:9px 14px;font-size:12px;font-weight:600;margin-bottom:12px;">
+      &#128274; Closing out a record here requires Admin or Manager sign-off — anyone else setting Status to "Closed" will be reverted automatically.
+    </div>`;
   }else{
     qrArea.innerHTML = '';
   }
   const pageData = data.pages[key];
   const table = document.getElementById('genericTable');
   if(!pageData){ table.innerHTML = ''; return; }
+  // If a module's column set has grown since this row was saved, pad it
+  // rather than letting old data misalign under the new headers.
+  pageData.rows.forEach(row=>{
+    while(row.length < pageData.columns.length) row.push('');
+  });
   let html = '<tr>' + pageData.columns.map(c=>`<th style="text-align:left;">${c}</th>`).join('') + '<th></th></tr>';
   pageData.rows.forEach((row,r)=>{
     html += '<tr>';
@@ -2753,6 +2874,31 @@ function renderGenericPage(key){
       const r = +e.target.dataset.r, c = +e.target.dataset.c;
       data.pages[key].rows[r][c] = e.target.value;
       save(); flashSave2();
+    });
+    inp.addEventListener('change', e=>{
+      // Close-out approval gate: on modules where a formal sign-off matters,
+      // only Admin/Manager can mark a record as closed. Anyone else typing
+      // a closing status into the Status column gets reverted, with an
+      // explanation — this mirrors how real NCR/CAPA/SCIR registers require
+      // a higher authority to sign off a close-out, not just whoever logged it.
+      const CLOSEOUT_RESTRICTED_MODULES = ['ncrManagement','scirTracker','correctiveActionTracker'];
+      const CLOSING_WORDS = ['closed','complete','completed','done'];
+      if(!CLOSEOUT_RESTRICTED_MODULES.includes(key)) return;
+      const c = +e.target.dataset.c;
+      const colName = pageData.columns[c];
+      if(!/status/i.test(colName)) return;
+      const val = (e.target.value||'').toLowerCase();
+      const isClosing = CLOSING_WORDS.some(w=>val.includes(w));
+      if(!isClosing) return;
+      if(currentUser && ['Admin','Manager'].includes(currentUser.role)) return; // authorized, allow it
+      const r = +e.target.dataset.r;
+      const original = fieldBeforeValues.get(e.target);
+      const wasAlreadyClosing = original!==undefined && CLOSING_WORDS.some(w=>original.toLowerCase().includes(w));
+      const revertTo = wasAlreadyClosing ? original : 'Open';
+      e.target.value = revertTo;
+      data.pages[key].rows[r][c] = revertTo;
+      save();
+      showToast(`Only Admin/Manager can close out a record in ${tabLabel(key)} — reverted to "${revertTo}".`, 'err', 4500);
     });
   });
   table.querySelectorAll('.delRowBtn').forEach(btn=>{
