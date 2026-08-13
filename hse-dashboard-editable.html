@@ -133,7 +133,7 @@
   button:disabled{opacity:.3;cursor:not-allowed;}
   input:disabled, select:disabled, textarea:disabled{opacity:.7;cursor:default;background:rgba(120,120,120,.08);}
 
-  .filters{display:grid;grid-template-columns:repeat(5,1fr) auto;gap:10px;margin-bottom:14px;}
+  .filters{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px;margin-bottom:14px;}
   .field{background:var(--card-glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--border);border-radius:9px;padding:6px 12px;box-shadow:var(--shadow);}
   .field label{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:1px;}
   .editListBtn{border:none;background:none;color:var(--blue);cursor:pointer;font-size:11px;padding:0 0 0 6px;}
@@ -464,6 +464,7 @@
       </div>
     </div>
 
+    <div id="leadingIndicators"></div>
     <div id="liveAlertCenter"></div>
 
     <div class="filters">
@@ -480,11 +481,8 @@
       <div class="field"><label>Department <button class="editListBtn editOnly" data-optkey="departments" data-selid="f_dept" title="Edit list of departments">&#9998;</button></label>
         <select id="f_dept"></select>
       </div>
-      <div class="field"><label>Location <button class="editListBtn editOnly" data-optkey="locations" data-selid="f_loc" title="Edit list of locations">&#9998;</button></label>
-        <select id="f_loc"></select>
-      </div>
-      <div class="field"><label>Contractor <button class="editListBtn editOnly" data-optkey="contractors" data-selid="f_contractor" title="Edit list of contractors">&#9998;</button></label>
-        <select id="f_contractor"></select>
+      <div class="field"><label>Project <button class="editListBtn editOnly" data-optkey="projects" data-selid="f_project" title="Edit list of projects">&#9998;</button></label>
+        <select id="f_project"></select>
       </div>
       <button class="refresh-btn editOnly" onclick="resetToZero()">&#8635; Refresh Data</button>
     </div>
@@ -708,7 +706,8 @@ const STORAGE_KEY = 'hse_dashboard_data_v1';
 // on it via mergeWithFresh() / migratePageColumns().
 const COLUMN_RENAME_ALIASES = {
   auditCompliance: { 'Audit': 'Audit Type' },
-  trainingManagement: { 'Course': 'Course / Competency' }
+  trainingManagement: { 'Course': 'Course / Competency' },
+  objectivesTargets: { 'Objective': 'Objective / KPI' }
 };
 
 /* ============ CLOUD SYNC (Supabase) ============
@@ -1211,7 +1210,7 @@ function wireAuthForms(){
   });
 }
 
-const ALWAYS_ENABLED_IDS = ['f_year','f_month','f_dept','f_loc','f_contractor'];
+const ALWAYS_ENABLED_IDS = ['f_year','f_month','f_dept','f_project'];
 
 // Module-level access control: which roles can EDIT a given tab, beyond just
 // being generally edit-capable. Anything not listed here defaults to "any
@@ -1385,10 +1384,10 @@ function defaultSeededPeriod(){
   p.compliance = {compliant:50, nonCompliant:1};
   return p;
 }
-const DEFAULT_FILTER_SELECTED = { year:'2024', month:'May', department:'All', location:'All', contractor:'All' };
+const DEFAULT_FILTER_SELECTED = { year:'2024', month:'May', department:'All', project:'Admin Building Complex' };
 function periodKey(sel){
   sel = sel || DEFAULT_FILTER_SELECTED;
-  return [sel.year, sel.month, sel.department, sel.location, sel.contractor||'All'].join('|');
+  return [sel.year, sel.month, sel.department, sel.project||'Admin Building Complex'].join('|');
 }
 
 /* ---------- QR PUBLIC REPORTING (no login/unlock needed) ---------- */
@@ -1525,13 +1524,19 @@ function computeLiveAlerts(){
       const days = daysUntil(row[dateColIdx]);
       if(days===null) return;
       if(days < 0){
-        alerts.push({level:'overdue', text:`${src.label} overdue by ${Math.abs(days)} day${Math.abs(days)===1?'':'s'} — ${row[0]}`, src:src.label});
+        const overdueDays = Math.abs(days);
+        const bucket = overdueDays > 60 ? 'severe' : overdueDays > 30 ? 'moderate' : 'recent';
+        alerts.push({level:'overdue', bucket, overdueDays, text:`${src.label} overdue by ${overdueDays} day${overdueDays===1?'':'s'} — ${row[0]}`, src:src.label});
       }else if(days <= 7){
         alerts.push({level:'due-soon', text:`${src.label} due in ${days} day${days===1?'':'s'} — ${row[0]}`, src:src.label});
       }
     });
   });
-  alerts.sort((a,b)=> (a.level==='overdue'?0:1) - (b.level==='overdue'?0:1));
+  alerts.sort((a,b)=>{
+    if(a.level!==b.level) return a.level==='overdue' ? -1 : 1;
+    if(a.level==='overdue') return (b.overdueDays||0) - (a.overdueDays||0); // most overdue first
+    return 0;
+  });
   return alerts;
 }
 function renderLiveAlertCenter(){
@@ -1546,13 +1551,108 @@ function renderLiveAlertCenter(){
       </div>
     </div>` : '';
   const alerts = computeLiveAlerts();
+  const severeCount = alerts.filter(a=>a.bucket==='severe').length;
+  const agingNote = severeCount>0 ? ` <span style="color:var(--red);font-weight:700;">— ${severeCount} overdue 60+ days</span>` : '';
   if(alerts.length===0){
     el.innerHTML = criticalBanner + `<div class="alert-panel"><h3>&#128276; Live Alert Center</h3><div class="alert-empty">No overdue or upcoming items in the next 7 days. Nice.</div></div>`;
     return;
   }
-  el.innerHTML = criticalBanner + `<div class="alert-panel"><h3>&#128276; Live Alert Center <span style="font-weight:400;color:var(--sub);font-size:10.5px;">(${alerts.length})</span></h3>
-    <ul class="alert-list">${alerts.map(a=>`<li class="alert-item ${a.level}">${a.level==='overdue'?'&#9888;':'&#8987;'} ${a.text}<span class="src">${a.src}</span></li>`).join('')}</ul>
+  el.innerHTML = criticalBanner + `<div class="alert-panel"><h3>&#128276; Live Alert Center <span style="font-weight:400;color:var(--sub);font-size:10.5px;">(${alerts.length})</span>${agingNote}</h3>
+    <ul class="alert-list">${alerts.map(a=>{
+      const agingTag = a.bucket==='severe' ? ' <b style="color:var(--red);">[60+ days]</b>' : a.bucket==='moderate' ? ' <b style="color:var(--amber);">[31-60 days]</b>' : '';
+      return `<li class="alert-item ${a.level}">${a.level==='overdue'?'&#9888;':'&#8987;'} ${a.text}${agingTag}<span class="src">${a.src}</span></li>`;
+    }).join('')}</ul>
   </div>`;
+}
+
+/* ---------- LEADING INDICATORS & DAYS WITHOUT LTI ---------- */
+function computeDaysWithoutLTI(){
+  const page = data.pages.incidentManagement;
+  if(!page) return null;
+  const dateColIdx = page.columns.indexOf('Date');
+  const typeColIdx = page.columns.indexOf('Type');
+  if(dateColIdx===-1 || typeColIdx===-1) return null;
+  let mostRecent = null;
+  page.rows.forEach(row=>{
+    const type = (row[typeColIdx]||'').toLowerCase();
+    if(type.includes('lost time') || type.includes('fatality')){
+      const d = new Date(row[dateColIdx]);
+      if(!isNaN(d.getTime()) && (!mostRecent || d > mostRecent)) mostRecent = d;
+    }
+  });
+  if(!mostRecent) return null; // no LTI/fatality ever logged
+  const today = new Date(); today.setHours(0,0,0,0);
+  mostRecent.setHours(0,0,0,0);
+  return Math.max(0, Math.round((today - mostRecent) / 86400000));
+}
+function computeLeadingIndicators(){
+  const p = activePeriod();
+  const nearMissKpi = p.kpis.find(k=>k.label==='Near Miss');
+  const totalIncKpi = p.kpis.find(k=>k.label==='Total Incidents');
+  const nmCount = nearMissKpi ? (parseFloat(nearMissKpi.value)||0) : 0;
+  const incCount = totalIncKpi ? (parseFloat(totalIncKpi.value)||0) : 0;
+  const ratio = incCount>0 ? +(nmCount/incCount).toFixed(1) : null;
+
+  const obsPage = data.pages.observations;
+  const obsCount = obsPage ? obsPage.rows.length : 0;
+
+  const ttPage = data.pages.toolboxTalks;
+  const ttCount = ttPage ? ttPage.rows.length : 0;
+
+  const inspPage = data.pages.inspections;
+  let inspOnTimePct = null;
+  if(inspPage && inspPage.rows.length>0){
+    const statusIdx = inspPage.columns.indexOf('Status');
+    if(statusIdx!==-1){
+      const done = inspPage.rows.filter(r=>/completed/i.test(r[statusIdx]||'')).length;
+      inspOnTimePct = Math.round(done/inspPage.rows.length*100);
+    }
+  }
+
+  const trainingKpi = p.kpis.find(k=>k.label==='Training Completion');
+  const trainingPct = trainingKpi ? trainingKpi.value : 0;
+
+  return { nmCount, incCount, ratio, obsCount, ttCount, inspOnTimePct, trainingPct };
+}
+function renderLeadingIndicators(){
+  const el = document.getElementById('leadingIndicators');
+  if(!el) return;
+  const li = computeLeadingIndicators();
+  const days = computeDaysWithoutLTI();
+  const daysDisplay = days===null ? 'No LTI on record' : `${days} day${days===1?'':'s'}`;
+  const ratioDisplay = li.ratio===null ? '—' : `${li.ratio}:1`;
+  const ratioWarn = li.ratio!==null && li.ratio < 5;
+
+  el.innerHTML = `
+    <div class="panel" style="margin-bottom:12px;">
+      <h3 style="margin-bottom:10px;">&#128200; LEADING INDICATORS <span style="font-weight:400;color:var(--sub);font-size:10px;">(observations/toolbox talks are all-time counts; ratio &amp; training are for the selected period)</span></h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+        <div class="li-stat" style="background:linear-gradient(135deg,rgba(15,157,88,.14),rgba(31,111,216,.08));border-radius:10px;padding:12px;">
+          <div style="font-size:20px;font-weight:800;color:var(--green);">${daysDisplay}</div>
+          <div style="font-size:10.5px;color:var(--sub);font-weight:600;">Days Without LTI</div>
+        </div>
+        <div class="li-stat" style="background:${ratioWarn?'rgba(224,36,36,.1)':'rgba(31,111,216,.08)'};border-radius:10px;padding:12px;">
+          <div style="font-size:20px;font-weight:800;color:${ratioWarn?'var(--red)':'var(--blue)'};">${ratioDisplay}</div>
+          <div style="font-size:10.5px;color:var(--sub);font-weight:600;">Near Miss : Incident ratio ${ratioWarn?'&#9888; below 5:1 benchmark':''}</div>
+        </div>
+        <div class="li-stat" style="background:rgba(111,43,214,.08);border-radius:10px;padding:12px;">
+          <div style="font-size:20px;font-weight:800;color:var(--purple);">${li.obsCount}</div>
+          <div style="font-size:10.5px;color:var(--sub);font-weight:600;">Safety Observations logged</div>
+        </div>
+        <div class="li-stat" style="background:rgba(245,180,0,.1);border-radius:10px;padding:12px;">
+          <div style="font-size:20px;font-weight:800;color:var(--amber);">${li.ttCount}</div>
+          <div style="font-size:10.5px;color:var(--sub);font-weight:600;">Toolbox Talks completed</div>
+        </div>
+        <div class="li-stat" style="background:rgba(15,157,88,.08);border-radius:10px;padding:12px;">
+          <div style="font-size:20px;font-weight:800;color:var(--green);">${li.inspOnTimePct===null?'—':li.inspOnTimePct+'%'}</div>
+          <div style="font-size:10.5px;color:var(--sub);font-weight:600;">Inspections completed on time</div>
+        </div>
+        <div class="li-stat" style="background:rgba(31,111,216,.08);border-radius:10px;padding:12px;">
+          <div style="font-size:20px;font-weight:800;color:var(--blue);">${li.trainingPct}%</div>
+          <div style="font-size:10.5px;color:var(--sub);font-weight:600;">Training Completion</div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function sampleData(){
@@ -1563,8 +1663,7 @@ function sampleData(){
     filterOptions: {
       years: ['2023','2024','2025','2026'],
       departments: ['All','Operations','Maintenance','Warehouse','Construction'],
-      locations: ['All','Plant Area 1','Warehouse','Construction Site','Office','Workshop'],
-      contractors: ['All','Contractor Co. A','Contractor Co. B']
+      projects: ['Admin Building Complex','Multistorey Parking Project']
     },
     text: {
       title: 'COMPLETE <span class="accent">HSE</span> DASHBOARD',
@@ -1735,17 +1834,12 @@ function sampleData(){
         ]
       },
       objectivesTargets: {
-        columns:['Objective','Target','Current','Due Date'],
+        columns:['Objective / KPI','Target','Current','Due Date','Status'],
         rows:[
-          ['Reduce LTI Rate','0 incidents','2 incidents','2024-12-31'],
-          ['100% Training Compliance','100%','92%','2024-09-30']
-        ]
-      },
-      kpisPerformance: {
-        columns:['KPI','Target','Actual','Status'],
-        rows:[
-          ['Inspection Score','95%','98%','On Track'],
-          ['Training Completion','95%','92%','At Risk']
+          ['Reduce LTI Rate','0 incidents','2 incidents','2024-12-31','At Risk'],
+          ['100% Training Compliance','100%','92%','2024-09-30','On Track'],
+          ['Inspection Score','95%','98%','—','On Track'],
+          ['Training Completion','95%','92%','—','At Risk']
         ]
       },
       reports: {
@@ -1755,31 +1849,12 @@ function sampleData(){
           ['Quarterly Compliance Report','Q2 2024','HSE Manager','2024-07-01']
         ]
       },
-      meetingMinutes: {
-        columns:['Meeting','Date','Action Items','Responsible','Due Date'],
-        rows:[
-          ['Weekly HSE Meeting','2024-05-13','Close out CAPA-002','HSE Officer','2024-05-27']
-        ]
-      },
       emergencyResponse: {
         columns:['Type','Contact Name','Phone','Location / Notes'],
         rows:[
           ['Fire','Civil Defense','998','Nearest station 5 min away'],
           ['Medical / Ambulance','Site Clinic','999','On-site clinic, Building A'],
           ['Assembly Point','—','—','Main gate parking area']
-        ]
-      },
-      visitorManagement: {
-        columns:['Visitor Name','Company','Host','Time In','Time Out','Purpose'],
-        rows:[
-          ['J. Smith','Client Co.','HSE Manager','08:30','10:15','Site walk-down']
-        ]
-      },
-      workerDirectory: {
-        columns:['Employee','ID / IQAMA','Company','Trade','Contact'],
-        rows:[
-          ['A. Salem','2xxxxxxxxx','Contractor Co. A','Rigger','05xxxxxxxx'],
-          ['B. Naser','2xxxxxxxxx','Contractor Co. A','Scaffolder','05xxxxxxxx']
         ]
       },
       administration: {
@@ -1821,10 +1896,9 @@ const PAGE_TITLES = {
   trainingManagement:'Training Matrix', documentManagement:'Document Expiry',
   heatStressManagement:'Heat Stress Management', qrReporting:'QR Reporting',
   contractorScorecard:'Contractor Scorecard', riskRegister:'Risk Register',
-  meetingMinutes:'Meeting Minutes', emergencyResponse:'Emergency Response',
-  visitorManagement:'Visitor Management', workerDirectory:'Worker Directory',
+  emergencyResponse:'Emergency Response',
   toolboxTalks:'Toolbox Talks', auditCompliance:'Audit & Compliance',
-  environmental:'Environmental', objectivesTargets:'Objectives & Targets', kpisPerformance:'KPIs & Performance',
+  environmental:'Environmental', objectivesTargets:'Objectives & KPIs',
   reports:'Reports', administration:'Administration',
   settings:'Settings', help:'Help'
 };
@@ -1917,6 +1991,32 @@ function migratePageColumns(freshPage, savedPage, pageKey){
   });
   return { columns: newCols.slice(), rows: newRows };
 }
+function migrateLocationContractorPeriodsToProject(periods, defaultProjectsList){
+  // Structural change: the Location+Contractor filters were replaced by a
+  // single Project filter, so period keys shrank from 5 parts to 4. Old
+  // keys (year|month|dept|location|contractor) can't match new lookups
+  // (year|month|dept|project), which would make previously-entered numbers
+  // look like they vanished. We can't know which old location/contractor
+  // combo should become which project, so as a reasonable one-time carry-
+  // forward: the old "All / All" default combo's data becomes the starting
+  // data for the first project. Anything entered under a *specific* old
+  // location/contractor stays in the data under its old key (recoverable
+  // via Edit JSON) but won't appear under the new Project filter automatically.
+  const firstProject = (defaultProjectsList && defaultProjectsList[0]) || 'Admin Building Complex';
+  Object.keys(periods).forEach(oldKey=>{
+    const parts = oldKey.split('|');
+    if(parts.length !== 5) return; // already new-format (4 parts), nothing to migrate
+    const [year, month, dept, location, contractor] = parts;
+    if(location==='All' && contractor==='All'){
+      const newKey = [year, month, dept, firstProject].join('|');
+      // Always prefer the real migrated data over whatever static sample/seed
+      // content might already occupy this key — a 5-part old key only ever
+      // exists here because it came from the user's actual saved data.
+      periods[newKey] = periods[oldKey];
+    }
+  });
+  return periods;
+}
 function mergeWithFresh(saved){
   const fresh = sampleData();
   saved = migrateOldFlatFormat(saved);
@@ -1925,6 +2025,7 @@ function mergeWithFresh(saved){
   Object.keys(saved.periods || {}).forEach(key=>{
     mergedPeriods[key] = mergePeriodWithTemplate(saved.periods[key]);
   });
+  migrateLocationContractorPeriodsToProject(mergedPeriods, fresh.filterOptions.projects);
   const mergedPages = {};
   Object.keys(fresh.pages).forEach(key=>{
     mergedPages[key] = migratePageColumns(fresh.pages[key], saved.pages && saved.pages[key], key);
@@ -1977,7 +2078,7 @@ function resetData(){
 }
 function resetToZero(){
   if(!editMode){ alert('Unlock editing first to use Refresh Data.'); return; }
-  const label = `${filterSelected.year} / ${filterSelected.month} / ${filterSelected.department} / ${filterSelected.location}`;
+  const label = `${filterSelected.year} / ${filterSelected.month} / ${filterSelected.department} / ${filterSelected.project}`;
   if(!confirm(`This sets every number on the dashboard to 0 for the currently selected period (${label}) only. Other periods and the tab tables (Incident Management, Near Miss, etc.) are not affected. This cannot be undone. Continue?`)) return;
 
   pushSnapshot('Before Refresh Data reset');
@@ -2509,8 +2610,7 @@ function renderFilters(){
   populateSelect('f_year', data.filterOptions.years, filterSelected.year);
   populateSelect('f_month', MONTHS, filterSelected.month);
   populateSelect('f_dept', data.filterOptions.departments, filterSelected.department);
-  populateSelect('f_loc', data.filterOptions.locations, filterSelected.location);
-  populateSelect('f_contractor', data.filterOptions.contractors, filterSelected.contractor);
+  populateSelect('f_project', data.filterOptions.projects, filterSelected.project);
 }
 function wireFilters(){
   const bind = (id, key)=>{
@@ -2524,14 +2624,14 @@ function wireFilters(){
       if(currentPage==='jsonEditor') refreshJsonTextarea();
     });
   };
-  bind('f_year','year'); bind('f_month','month'); bind('f_dept','department'); bind('f_loc','location');
-  bind('f_contractor','contractor');
+  bind('f_year','year'); bind('f_month','month'); bind('f_dept','department');
+  bind('f_project','project');
 
   document.querySelectorAll('.editListBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       if(!editMode) return;
-      const optKey = btn.dataset.optkey;   // years | departments | locations | contractors
-      const selKey = {years:'year', departments:'department', locations:'location', contractors:'contractor'}[optKey];
+      const optKey = btn.dataset.optkey;   // years | departments | projects
+      const selKey = {years:'year', departments:'department', projects:'project'}[optKey];
       const current = data.filterOptions[optKey].join(', ');
       const input = prompt(`Edit the list (comma-separated):`, current);
       if(input===null) return;
@@ -2558,11 +2658,9 @@ const TAB_ICONS = {
   correctiveActionTracker:'&#128295;', trainingManagement:'&#127891;',
   documentManagement:'&#128193;', heatStressManagement:'&#127777;', qrReporting:'&#128241;',
   contractorScorecard:'&#127942;', riskRegister:'&#9888;',
-  meetingMinutes:'&#128221;',
-  emergencyResponse:'&#128680;', visitorManagement:'&#128100;',
-  workerDirectory:'&#128101;',
+  emergencyResponse:'&#128680;',
   toolboxTalks:'&#128172;', auditCompliance:'&#128737;',
-  environmental:'&#127811;', objectivesTargets:'&#127919;', kpisPerformance:'&#128202;',
+  environmental:'&#127811;', objectivesTargets:'&#127919;',
   reports:'&#128196;', analytics:'&#128200;', administration:'&#128100;',
   auditLog:'&#128220;', versionHistory:'&#128337;',
   settings:'&#9881;', help:'&#10067;', jsonEditor:'&#128221;'
@@ -2703,6 +2801,8 @@ function showPage(key){
 
   if(key==='dashboard'){
     dash.style.display='';
+    renderLeadingIndicators();
+    renderLiveAlertCenter();
   }else if(key==='jsonEditor'){
     jsonPage.style.display='';
     refreshJsonTextarea();
@@ -2929,6 +3029,7 @@ function renderAll(){
   renderRiskMatrix();
   renderEnv();
   renderFilters();
+  renderLeadingIndicators();
   renderLiveAlertCenter();
   applyEditMode();
   renderValidationWarnings();
