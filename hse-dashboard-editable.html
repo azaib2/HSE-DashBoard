@@ -398,6 +398,8 @@
     <div id="qrFormBody">
       <h2>&#128736; Quick Safety Report</h2>
       <p>No login needed. Submit a safety observation, hazard, or near miss directly to the HSE team.</p>
+      <label>Which project is this about?</label>
+      <select id="qrProject"></select>
       <label>What are you reporting?</label>
       <select id="qrType">
         <option>Unsafe Act</option>
@@ -1397,8 +1399,13 @@ function maybeShowQrPublicForm(){
   if(params.get('report') !== '1') return;
   isQrPublicMode = true;
   document.body.classList.add('qr-public-mode');
+  const projSel = document.getElementById('qrProject');
+  if(projSel){
+    projSel.innerHTML = (data.filterOptions.projects||['Admin Building Complex']).map(p=>`<option>${p}</option>`).join('');
+  }
 }
 async function submitQrReport(){
+  const project = document.getElementById('qrProject').value;
   const type = document.getElementById('qrType').value;
   const desc = document.getElementById('qrDesc').value.trim();
   const loc = document.getElementById('qrLoc').value.trim();
@@ -1415,11 +1422,12 @@ async function submitQrReport(){
   submitBtn.textContent = 'Submitting…';
   try{
     if(cloudEnabled){ await pullFromCloud(false); } // grab the freshest shared data first
-    if(!data.pages.qrReporting){
-      data.pages.qrReporting = {columns:['Date','Type','Description','Location','Anonymous','Status'], rows:[]};
+    const projPages = ensureProjectPages(project);
+    if(!projPages.qrReporting){
+      projPages.qrReporting = {columns:['Date','Type','Description','Location','Anonymous','Status'], rows:[]};
     }
     const today = new Date().toISOString().slice(0,10);
-    data.pages.qrReporting.rows.push([today, type, desc, loc || '—', anon ? 'Yes':'No', 'Open']);
+    projPages.qrReporting.rows.push([today, type, desc, loc || '—', anon ? 'Yes':'No', 'Open']);
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
     if(cloudEnabled){ await pushToCloud(); }
     document.getElementById('qrFormBody').style.display = 'none';
@@ -1513,7 +1521,7 @@ function computeLiveAlerts(){
   ];
   const alerts = [];
   sources.forEach(src=>{
-    const page = data.pages[src.key];
+    const page = activePages()[src.key];
     if(!page) return;
     const dateColIdx = page.columns.findIndex(c => /date/i.test(c));
     const statusColIdx = page.columns.findIndex(c => /status/i.test(c));
@@ -1567,7 +1575,7 @@ function renderLiveAlertCenter(){
 
 /* ---------- LEADING INDICATORS & DAYS WITHOUT LTI ---------- */
 function computeDaysWithoutLTI(){
-  const page = data.pages.incidentManagement;
+  const page = activePages().incidentManagement;
   if(!page) return null;
   const dateColIdx = page.columns.indexOf('Date');
   const typeColIdx = page.columns.indexOf('Type');
@@ -1593,13 +1601,13 @@ function computeLeadingIndicators(){
   const incCount = totalIncKpi ? (parseFloat(totalIncKpi.value)||0) : 0;
   const ratio = incCount>0 ? +(nmCount/incCount).toFixed(1) : null;
 
-  const obsPage = data.pages.observations;
+  const obsPage = activePages().observations;
   const obsCount = obsPage ? obsPage.rows.length : 0;
 
-  const ttPage = data.pages.toolboxTalks;
+  const ttPage = activePages().toolboxTalks;
   const ttCount = ttPage ? ttPage.rows.length : 0;
 
-  const inspPage = data.pages.inspections;
+  const inspPage = activePages().inspections;
   let inspOnTimePct = null;
   if(inspPage && inspPage.rows.length>0){
     const statusIdx = inspPage.columns.indexOf('Status');
@@ -1888,6 +1896,30 @@ function sampleData(){
   };
 }
 
+function blankPagesFrom(pagesObj){
+  const out = {};
+  Object.keys(pagesObj).forEach(k=>{
+    out[k] = { columns: pagesObj[k].columns.slice(), rows: [] };
+  });
+  return out;
+}
+function freshData(){
+  // sampleData() returns one flat `pages` object (the module tables) with
+  // demo content. Every tab (Incident Management, NCR, Training Matrix,
+  // etc.) needs to be genuinely separate per project, so this wraps that
+  // into projectPages{}: the FIRST configured project keeps the seeded
+  // demo rows, every other project starts with the same columns but empty.
+  const base = sampleData();
+  const seeded = base.pages;
+  delete base.pages;
+  const projectPages = {};
+  base.filterOptions.projects.forEach((proj, idx)=>{
+    projectPages[proj] = idx===0 ? seeded : blankPagesFrom(seeded);
+  });
+  base.projectPages = projectPages;
+  return base;
+}
+
 const PAGE_TITLES = {
   projectOverview:'Project Overview',
   incidentManagement:'Incident Management', nearMiss:'Near Miss', observations:'Safety Observation',
@@ -1929,6 +1961,17 @@ function ensurePeriod(key){
 }
 function activePeriod(){
   return ensurePeriod(periodKey(filterSelected));
+}
+
+function ensureProjectPages(project){
+  if(!data.projectPages[project]){
+    const anyExisting = data.projectPages[Object.keys(data.projectPages)[0]];
+    data.projectPages[project] = anyExisting ? blankPagesFrom(anyExisting) : {};
+  }
+  return data.projectPages[project];
+}
+function activePages(){
+  return ensureProjectPages(filterSelected.project);
 }
 
 function mergePeriodWithTemplate(savedPeriod){
@@ -2018,7 +2061,7 @@ function migrateLocationContractorPeriodsToProject(periods, defaultProjectsList)
   return periods;
 }
 function mergeWithFresh(saved){
-  const fresh = sampleData();
+  const fresh = freshData();
   saved = migrateOldFlatFormat(saved);
   if(!saved) return fresh;
   const mergedPeriods = Object.assign({}, fresh.periods);
@@ -2026,24 +2069,49 @@ function mergeWithFresh(saved){
     mergedPeriods[key] = mergePeriodWithTemplate(saved.periods[key]);
   });
   migrateLocationContractorPeriodsToProject(mergedPeriods, fresh.filterOptions.projects);
-  const mergedPages = {};
-  Object.keys(fresh.pages).forEach(key=>{
-    mergedPages[key] = migratePageColumns(fresh.pages[key], saved.pages && saved.pages[key], key);
+
+  const mergedFilterOptions = Object.assign({}, fresh.filterOptions, saved.filterOptions||{});
+  const finalProjects = (mergedFilterOptions.projects && mergedFilterOptions.projects.length)
+    ? mergedFilterOptions.projects : fresh.filterOptions.projects;
+
+  // `saved.pages` (flat, global) only exists on data saved BEFORE tables were
+  // split per-project — carry that forward into the first project only, same
+  // one-time-carry-forward spirit as the location/contractor migration above.
+  const legacyFlatPages = saved.pages;
+  const savedProjectPages = saved.projectPages || {};
+
+  const mergedProjectPages = {};
+  finalProjects.forEach((proj, idx)=>{
+    const templateForProject = fresh.projectPages[proj] || blankPagesFrom(fresh.projectPages[fresh.filterOptions.projects[0]]);
+    const savedForProject = savedProjectPages[proj] || (idx===0 && legacyFlatPages ? legacyFlatPages : undefined);
+    const mergedPages = {};
+    Object.keys(templateForProject).forEach(key=>{
+      mergedPages[key] = migratePageColumns(templateForProject[key], savedForProject && savedForProject[key], key);
+    });
+    // Preserve data from modules that were removed/consolidated (e.g. old
+    // PTW, the old separate Risk Management / Audit Management) — not
+    // deleted, just no longer shown as its own tab.
+    if(savedForProject){
+      Object.keys(savedForProject).forEach(key=>{
+        if(!mergedPages[key]) mergedPages[key] = savedForProject[key];
+      });
+    }
+    mergedProjectPages[proj] = mergedPages;
   });
-  // Preserve data from modules that were removed/consolidated (e.g. old PTW,
-  // the old separate Risk Management / Audit Management / Action Tracker) —
-  // it's not deleted, just no longer shown as its own tab.
-  Object.keys(saved.pages||{}).forEach(key=>{
-    if(!mergedPages[key]) mergedPages[key] = saved.pages[key];
+  // If a project was renamed/removed from the list but still has saved data,
+  // keep that data around rather than silently deleting it.
+  Object.keys(savedProjectPages).forEach(proj=>{
+    if(!mergedProjectPages[proj]) mergedProjectPages[proj] = savedProjectPages[proj];
   });
+
   return {
     periods: mergedPeriods,
-    pages: mergedPages,
+    projectPages: mergedProjectPages,
     text: Object.assign({}, fresh.text, saved.text||{}, {
       banner: (saved.text && saved.text.banner) ? saved.text.banner : fresh.text.banner,
       tabLabels: Object.assign({}, fresh.text.tabLabels, (saved.text && saved.text.tabLabels)||{})
     }),
-    filterOptions: Object.assign({}, fresh.filterOptions, saved.filterOptions||{})
+    filterOptions: mergedFilterOptions
   };
 }
 function load(){
@@ -2051,7 +2119,7 @@ function load(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw) return mergeWithFresh(JSON.parse(raw));
   }catch(e){}
-  return sampleData();
+  return freshData();
 }
 function save(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
@@ -2069,7 +2137,7 @@ function resetData(){
   if(confirm('Reset all values back to the sample data? This clears your edits.')){
     pushSnapshot('Before Reset Sample Data');
     logAudit('Reset Sample Data', 'Restored all data to defaults');
-    data = sampleData();
+    data = freshData();
     filterSelected = Object.assign({}, DEFAULT_FILTER_SELECTED);
     saveFilterSelected();
     save();
@@ -2952,7 +3020,7 @@ function renderGenericPage(key){
   }else{
     qrArea.innerHTML = '';
   }
-  const pageData = data.pages[key];
+  const pageData = activePages()[key];
   const table = document.getElementById('genericTable');
   if(!pageData){ table.innerHTML = ''; return; }
   // If a module's column set has grown since this row was saved, pad it
@@ -2972,7 +3040,7 @@ function renderGenericPage(key){
   table.querySelectorAll('input').forEach(inp=>{
     inp.addEventListener('input', e=>{
       const r = +e.target.dataset.r, c = +e.target.dataset.c;
-      data.pages[key].rows[r][c] = e.target.value;
+      activePages()[key].rows[r][c] = e.target.value;
       save(); flashSave2();
     });
     inp.addEventListener('change', e=>{
@@ -2996,7 +3064,7 @@ function renderGenericPage(key){
       const wasAlreadyClosing = original!==undefined && CLOSING_WORDS.some(w=>original.toLowerCase().includes(w));
       const revertTo = wasAlreadyClosing ? original : 'Open';
       e.target.value = revertTo;
-      data.pages[key].rows[r][c] = revertTo;
+      activePages()[key].rows[r][c] = revertTo;
       save();
       showToast(`Only Admin/Manager can close out a record in ${tabLabel(key)} — reverted to "${revertTo}".`, 'err', 4500);
     });
@@ -3004,14 +3072,14 @@ function renderGenericPage(key){
   table.querySelectorAll('.delRowBtn').forEach(btn=>{
     btn.addEventListener('click', e=>{
       const r = +e.target.dataset.r;
-      data.pages[key].rows.splice(r,1);
+      activePages()[key].rows.splice(r,1);
       save(); renderGenericPage(key);
     });
   });
   applyEditMode();
 }
 function addGenericRow(){
-  const pageData = data.pages[currentPage];
+  const pageData = activePages()[currentPage];
   if(!pageData) return;
   pageData.rows.push(pageData.columns.map(()=>''));
   save();
