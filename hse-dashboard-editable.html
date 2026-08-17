@@ -203,6 +203,79 @@
   .qr-code-box .qr-link{font-size:12px;color:var(--sub);word-break:break-all;}
 
   #liveAlertCenter{margin-bottom:12px;}
+
+  /* ---------- EXECUTIVE DASHBOARD SUMMARY (fixed dark theme, matches reference design) ---------- */
+  .exec-dashboard{
+    background:#0c1826;border-radius:16px;padding:18px 20px 20px;margin-bottom:18px;
+    box-shadow:0 10px 34px rgba(0,0,0,.28);color:#e7edf3;
+  }
+  .exec-header{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;}
+  .exec-brand{display:flex;align-items:center;gap:10px;}
+  .exec-shield{
+    width:34px;height:34px;border-radius:8px;background:#1fbf72;color:#04170c;
+    display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;flex-shrink:0;
+  }
+  .exec-title{font-size:19px;font-weight:900;letter-spacing:.02em;color:#fff;line-height:1.1;
+    outline:none;}
+  .exec-subtitle{font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#3fe08f;margin-top:1px;}
+  .exec-status{text-align:right;}
+  .exec-status-label{font-size:10px;font-weight:700;letter-spacing:.06em;color:#93a3b8;}
+  .exec-status-value{font-size:17px;font-weight:900;letter-spacing:.02em;margin:1px 0 3px;}
+  .exec-lastupdate{font-size:10.5px;color:#93a3b8;font-weight:600;}
+
+  .exec-kpi-row{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-bottom:8px;}
+  .exec-kpi-row2{grid-template-columns:repeat(2,1fr);max-width:340px;}
+  .exec-kpi-card{
+    background:#111f30;border:1px solid #1c3049;border-radius:10px;padding:10px 9px;
+    display:flex;flex-direction:column;gap:4px;min-width:0;
+  }
+  .exec-kpi-card.solid{background:#132537;}
+  .exec-kpi-top{display:flex;align-items:center;justify-content:space-between;gap:4px;}
+  .exec-kpi-icon{
+    width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;flex-shrink:0;
+  }
+  .exec-kpi-value{font-size:19px;font-weight:900;color:#fff;line-height:1;}
+  .exec-kpi-label{font-size:9px;font-weight:700;letter-spacing:.03em;color:#93a3b8;text-transform:uppercase;line-height:1.25;}
+  .exec-kpi-target{font-size:8.5px;color:#6b7f95;font-weight:600;margin-top:1px;}
+  .exec-kpi-pill{
+    font-size:8.5px;font-weight:800;letter-spacing:.02em;padding:2px 6px;border-radius:5px;
+    text-align:center;margin-top:3px;
+  }
+  .exec-kpi-pill.above{background:#3a1216;color:#ff7a72;}
+  .exec-kpi-pill.on{background:#0f2a1a;color:#3fe08f;}
+  .exec-kpi-pill.below{background:#3a1216;color:#ff7a72;}
+
+  .exec-charts-row{display:grid;grid-template-columns:1fr 2fr 1fr;gap:10px;margin-bottom:10px;}
+  .exec-charts-row-2{grid-template-columns:1fr 2fr;}
+  .exec-panel{background:#111f30;border:1px solid #1c3049;border-radius:10px;padding:12px 13px;}
+  .exec-panel h4{margin:0 0 10px;font-size:11px;font-weight:800;letter-spacing:.04em;color:#cfe0ee;}
+  .exec-bar-list{display:flex;flex-direction:column;gap:7px;}
+  .exec-bar-row{display:flex;align-items:center;gap:8px;font-size:10.5px;}
+  .exec-bar-row .exec-bar-label{width:96px;flex-shrink:0;color:#b7c6d6;}
+  .exec-bar-track{flex:1;background:#0c1826;border-radius:3px;height:12px;position:relative;overflow:hidden;}
+  .exec-bar-fill{background:#4f8ef7;height:100%;border-radius:3px;}
+  .exec-bar-val{width:16px;text-align:right;color:#fff;font-weight:700;}
+  .exec-donut-wrap{display:flex;align-items:center;gap:12px;}
+  .exec-donut{width:96px;height:96px;border-radius:50%;position:relative;flex-shrink:0;}
+  .exec-donut::after{content:'';position:absolute;inset:20px;background:#111f30;border-radius:50%;}
+  .exec-donut-center{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;
+    font-size:17px;font-weight:900;color:#fff;
+  }
+  .exec-legend{list-style:none;margin:0;padding:0;flex:1;}
+  .exec-legend li{display:flex;align-items:center;gap:6px;font-size:10px;color:#b7c6d6;padding:2px 0;font-weight:600;}
+  .exec-legend .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+  @media (max-width:1150px){
+    .exec-kpi-row{grid-template-columns:repeat(4,1fr);}
+    .exec-charts-row, .exec-charts-row-2{grid-template-columns:1fr;}
+  }
+  @media (max-width:680px){
+    .exec-kpi-row{grid-template-columns:repeat(2,1fr);}
+    .exec-status{text-align:left;}
+    .exec-header{flex-direction:column;}
+  }
   .alert-panel{
     background:var(--card-glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
     border:1px solid var(--border);border-radius:var(--radius);padding:12px 15px;box-shadow:var(--shadow);
@@ -440,7 +513,7 @@
     <div class="sidebar-footer">
       <div class="avatar" id="avatarLetter">H</div>
       <div>
-        <div class="name" id="userName" contenteditable="true" spellcheck="false">HSE Manager</div>
+        <div class="name" id="userName" contenteditable="true" spellcheck="false">Ali Danial</div>
         <div class="role" id="userRole" contenteditable="true" spellcheck="false">Safety First, Always</div>
       </div>
     </div>
@@ -453,7 +526,7 @@
     <div class="header">
       <div>
         <h1 id="titleText" contenteditable="true" spellcheck="false">COMPLETE <span class="accent">HSE</span> DASHBOARD</h1>
-        <p class="tagline"><span id="taglineText" contenteditable="true" spellcheck="false">HEALTH. SAFETY. ENVIRONMENT. EXCELLENCE.</span> &mdash; <em id="hintText" contenteditable="true" spellcheck="false" style="color:var(--sub);font-weight:600;">editable version, type your own numbers below</em></p>
+        <p class="tagline"><span id="taglineText" contenteditable="true" spellcheck="false">HEALTH. SAFETY. ENVIRONMENT. EXCELLENCE.</span> &mdash; <em id="hintText" contenteditable="true" spellcheck="false" style="color:var(--sub);font-weight:600;">DAR International Engineering for Consultancy</em></p>
       </div>
       <div class="toolbar">
         <span id="saveNote">Saved</span>
@@ -463,6 +536,58 @@
         <button class="pillbtn editOnly" onclick="document.getElementById('importFile').click()">Import Dashboard</button>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
         <button class="pillbtn editOnly" onclick="resetData()">Reset Sample Data</button>
+      </div>
+    </div>
+
+    <div id="execDashboard" class="exec-dashboard">
+      <div class="exec-header">
+        <div class="exec-brand">
+          <div class="exec-shield">&#10003;</div>
+          <div>
+            <div class="exec-title" id="execTitleText" contenteditable="true" spellcheck="false">WORKPLACE SAFETY</div>
+            <div class="exec-subtitle">EXECUTIVE DASHBOARD</div>
+          </div>
+        </div>
+        <div class="exec-status">
+          <div class="exec-status-label">SAFETY STATUS</div>
+          <div class="exec-status-value" id="execSafetyStatus">—</div>
+          <div class="exec-lastupdate">&#128197; Last Update <span id="execLastUpdate">—</span></div>
+        </div>
+      </div>
+
+      <div class="exec-kpi-row" id="execKpiRow"></div>
+      <div class="exec-kpi-row exec-kpi-row2" id="execKpiRow2"></div>
+
+      <div class="exec-charts-row">
+        <div class="exec-panel">
+          <h4>INCIDENT BREAKDOWN</h4>
+          <div id="execIncidentBreakdown" class="exec-bar-list"></div>
+        </div>
+        <div class="exec-panel exec-panel-wide">
+          <h4>INCIDENT TREND (<span id="execTrendYear"></span>)</h4>
+          <svg id="execTrendSvg" viewBox="0 0 560 170" width="100%" height="170"></svg>
+        </div>
+        <div class="exec-panel">
+          <h4>INCIDENT BY STATUS</h4>
+          <div class="exec-donut-wrap">
+            <div class="exec-donut" id="execStatusDonut"><div class="exec-donut-center" id="execStatusTotal">0</div></div>
+            <ul class="exec-legend" id="execStatusLegend"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="exec-charts-row exec-charts-row-2">
+        <div class="exec-panel">
+          <h4>TRAINING STATUS</h4>
+          <div class="exec-donut-wrap">
+            <div class="exec-donut" id="execTrainingDonut"><div class="exec-donut-center" id="execTrainingPct">0%</div></div>
+            <ul class="exec-legend" id="execTrainingLegend"></ul>
+          </div>
+        </div>
+        <div class="exec-panel exec-panel-wide">
+          <h4>INCIDENTS BY DEPARTMENT</h4>
+          <svg id="execDeptSvg" viewBox="0 0 560 150" width="100%" height="150"></svg>
+        </div>
       </div>
     </div>
 
@@ -505,13 +630,13 @@
         <h3>INCIDENT TREND</h3>
         <svg id="incidentTrendSvg" viewBox="0 0 320 150" width="100%" height="140"></svg>
         <div style="font-size:10px;color:var(--sub);display:flex;gap:12px;">
-          <span style="color:#1f4fd8;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2023">2023</span></span><span style="color:#1b8a2f;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2024">2024</span></span>
+          <span style="color:#1f4fd8;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2026">2026</span></span><span style="color:#1b8a2f;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2024">2024</span></span>
         </div>
         <details class="editor"><summary contenteditable="true" spellcheck="false" id="editLbl_incident">Edit monthly values</summary>
-          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2023">2023</div>
-          <div class="month-grid" id="grid_incident2023"></div>
-          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2024">2024 (leave blank for months not yet reported)</div>
-          <div class="month-grid" id="grid_incident2024"></div>
+          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2023">2026</div>
+          <div class="month-grid" id="grid_incident2026"></div>
+          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2026">2026 (leave blank for months not yet reported)</div>
+          <div class="month-grid" id="grid_incident2026"></div>
         </details>
       </div>
 
@@ -1272,9 +1397,9 @@ function runValidation(){
   const targetVals = activePeriod().scoreTarget.filter(v=>v!==''&&v!==undefined).map(v=>parseFloat(v));
   if(scoreVals.some(v=>v>100||v<0)) warnings.push('Inspection Score Trend has a monthly value outside 0–100%.');
   if(targetVals.some(v=>v>100||v<0)) warnings.push('Inspection Score Trend has a target value outside 0–100%.');
-  const trTotal = (parseFloat(activePeriod().training.completed)||0) + (parseFloat(activePeriod().training.pending)||0);
+  const trTotal = (parseFloat(activePeriod().training.completed)||0) + (parseFloat(activePeriod().training.pending)||0) + (parseFloat(activePeriod().training.expired)||0);
   if(Math.round(trTotal) !== 100){
-    warnings.push(`Training Completion: Completed + Pending = ${trTotal}%, expected 100%.`);
+    warnings.push(`Training Status: Compliant + Expiring Soon + Expired = ${trTotal}%, expected 100%.`);
   }
   return warnings;
 }
@@ -1301,7 +1426,7 @@ function blankPeriod(){
       {icon:'&#128101;', color:'#1f4fd8', label:'Total Incidents', value:0, delta:0, dir:'down', computed:'incidentByType'},
       {icon:'&#9888;', color:'#f2711c', label:'Near Miss', value:0, delta:0, dir:'down'},
       {icon:'&#128203;', color:'#1b8a2f', label:'Inspection Score', value:0, suffix:'%', delta:0, dir:'up'},
-      {icon:'&#127891;', color:'#6f2bd6', label:'Training Completion', value:0, suffix:'%', delta:0, dir:'up'},
+      {icon:'&#127891;', color:'#6f2bd6', label:'Training Completion', value:0, suffix:'%', delta:0, dir:'up', computed:'trainingCompliance'},
       {icon:'&#127811;', color:'#1b8a2f', label:'Environmental Compliance', value:0, suffix:'%', delta:0, dir:'up'},
       {icon:'&#128737;', color:'#1f4fd8', label:'Open Actions', value:0, delta:0, dir:'down', computed:'actionsOpen'}
     ],
@@ -1311,20 +1436,20 @@ function blankPeriod(){
       {label:'Fatality', value:0, color:'#111111'},
       {label:'Medical Treatment', value:0, color:'#1f4fd8'},
       {label:'First Aid', value:0, color:'#1b8a2f'},
-      {label:'Restricted Work', value:0, color:'#f2711c'},
+      {label:'Secruity', value:0, color:'#f2711c'},
       {label:'Lost Time Injury', value:0, color:'#e02424'},
       {label:'Property Damage', value:0, color:'#6f2bd6'}
     ],
     locations: [
-      {label:'Plant Area 1', value:0},
-      {label:'Warehouse', value:0},
-      {label:'Construction Site', value:0},
       {label:'Office', value:0},
+      {label:'Erection', value:0},
+      {label:'Construction Site', value:0},
+      {label:'Laydown', value:0},
       {label:'Workshop', value:0}
     ],
     scoreVal: [0,0,0,0,0,0,0,0,0,0,0,0],
     scoreTarget: [0,0,0,0,0,0,0,0,0,0,0,0],
-    training: {completed:0, pending:0},
+    training: {completed:0, pending:0, expired:0},
     actions: [
       {label:'Open', value:0, color:'#e02424'},
       {label:'In Progress', value:0, color:'#f2711c'},
@@ -1345,7 +1470,8 @@ function blankPeriod(){
       {icon:'&#128295;', label:'Equipment Breakdown', value:0, delta:0, dir:'up'},
       {icon:'&#128176;', label:'Penalties', value:0, delta:0, dir:'down'},
       {icon:'&#9200;', label:'Total Man Hours', value:0, delta:0, dir:'up'},
-      {icon:'&#128337;', label:'Man Hours This Week', value:0, delta:0, dir:'up'}
+      {icon:'&#128337;', label:'Man Hours This Week', value:0, delta:0, dir:'up'},
+      {icon:'&#127967;', label:'Lost Time Days', value:0, delta:0, dir:'down'}
     ],
     compliance: {compliant:0, nonCompliant:0}
   };
@@ -1371,7 +1497,7 @@ function defaultSeededPeriod(){
   p.locations[3].value = 1; p.locations[4].value = 1;
   p.scoreVal = [80,78,82,79,83,81,84,82,83,85,86,84];
   p.scoreTarget = [90,90,90,90,90,90,90,90,90,90,90,90];
-  p.training = {completed:92, pending:8};
+  p.training = {completed:80, pending:13, expired:7};
   p.actions[0].value = 15; p.actions[1].value = 10; p.actions[2].value = 6; p.actions[3].value = 4;
   p.riskMatrix = [
     [5,10,15,20,25],
@@ -1547,6 +1673,181 @@ function computeLiveAlerts(){
   });
   return alerts;
 }
+/* ---------- EXECUTIVE DASHBOARD SUMMARY RENDER ---------- */
+function execConic(items){
+  const total = items.reduce((s,x)=>s+(parseFloat(x.value)||0),0) || 1;
+  let acc = 0; const stops = [];
+  items.forEach(it=>{
+    const v = parseFloat(it.value)||0;
+    const pct = v/total*100;
+    stops.push(`${it.color} ${acc}% ${acc+pct}%`);
+    acc += pct;
+  });
+  if(acc<100) stops.push(`#22344a ${acc}% 100%`);
+  return `conic-gradient(${stops.join(',')})`;
+}
+function execPillClass(value, target, lowerIsBetter){
+  const good = lowerIsBetter ? value <= target : value >= target;
+  return good ? 'on' : 'above';
+}
+function execPillText(value, target, lowerIsBetter){
+  const good = lowerIsBetter ? value <= target : value >= target;
+  if(good) return lowerIsBetter ? 'ON TARGET' : 'ON TARGET';
+  return lowerIsBetter ? 'ABOVE TARGET' : 'BELOW TARGET';
+}
+function renderExecDashboard(){
+  const el = document.getElementById('execDashboard');
+  if(!el) return;
+  const p = activePeriod();
+
+  // header
+  const status = computeSafetyStatus();
+  const statusEl = document.getElementById('execSafetyStatus');
+  statusEl.textContent = status.level;
+  statusEl.style.color = status.color;
+  document.getElementById('execLastUpdate').textContent = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+
+  const trir = parseFloat((p.environmental.find(x=>x.label==='TRIR')||{}).value) || 0;
+  const ltifr = parseFloat((p.environmental.find(x=>x.label==='LTIFR')||{}).value) || 0;
+  const severity = computeSeverityRate();
+  const trainingKpi = p.kpis.find(k=>k.label==='Training Completion');
+  const trainingPct = trainingKpi ? (parseFloat(trainingKpi.value)||0) : 0;
+  const daysNoIncident = computeDaysWithoutIncident();
+  const incidentsYTD = computeIncidentsYTD();
+  const openActionsKpi = p.kpis.find(k=>k.label==='Open Actions');
+  const openActions = openActionsKpi ? (parseFloat(openActionsKpi.value)||0) : 0;
+  const overdueActions = computeOverdueActionsCount();
+  const projOverview = activePages().projectOverview;
+  let employees = 0;
+  if(projOverview){
+    const row = projOverview.rows.find(r=>/workforce/i.test(r[0]||''));
+    if(row) employees = parseFloat(row[1]) || 0;
+  }
+  const criticalRisks = computeCriticalRisksCount();
+
+  const row1 = [
+    {label:'TRIR', value:trir, target:TARGETS.trir, lowerIsBetter:true, hasTarget:true},
+    {label:'LTIFR', value:ltifr, target:TARGETS.ltifr, lowerIsBetter:true, hasTarget:true},
+    {label:'Days Without Incident', value: daysNoIncident===null ? '—' : daysNoIncident, icon:'&#128197;', color:'#4f8ef7'},
+    {label:'Total Incidents YTD', value: incidentsYTD, icon:'&#128101;', color:'#4f8ef7'},
+    {label:'Open Actions', value: openActions, icon:'&#128203;', color:'#c9a24a'},
+    {label:'Overdue Actions', value: overdueActions, icon:'&#9888;', color:'#e0453f'},
+    {label:'Employees', value: employees, icon:'&#128101;', color:'#4f8ef7'},
+    {label:'Critical Risks', value: criticalRisks, icon:'&#10006;', color:'#e0453f'}
+  ];
+  const row2 = [
+    {label:'Severity Rate', value:severity, target:TARGETS.severityRate, lowerIsBetter:true, hasTarget:true},
+    {label:'Training Compliance', value:trainingPct, target:TARGETS.trainingCompliance, lowerIsBetter:false, hasTarget:true, suffix:'%'}
+  ];
+
+  const renderCard = (k)=>{
+    if(k.hasTarget){
+      const pillClass = execPillClass(k.value, k.target, k.lowerIsBetter);
+      const pillText = execPillText(k.value, k.target, k.lowerIsBetter);
+      const targetText = k.lowerIsBetter ? `TARGET &lt; ${k.target}${k.suffix||''}` : `TARGET &gt; ${k.target}${k.suffix||''}`;
+      return `<div class="exec-kpi-card solid">
+        <div class="exec-kpi-value">${k.value}${k.suffix||''}</div>
+        <div class="exec-kpi-label">${k.label}</div>
+        <div class="exec-kpi-target">${targetText}</div>
+        <div class="exec-kpi-pill ${pillClass}">${pillText}</div>
+      </div>`;
+    }
+    return `<div class="exec-kpi-card">
+      <div class="exec-kpi-top">
+        <span class="exec-kpi-icon" style="background:${k.color}22;color:${k.color};">${k.icon}</span>
+      </div>
+      <div class="exec-kpi-value">${k.value}</div>
+      <div class="exec-kpi-label">${k.label}</div>
+    </div>`;
+  };
+  document.getElementById('execKpiRow').innerHTML = row1.map(renderCard).join('');
+  document.getElementById('execKpiRow2').innerHTML = row2.map(renderCard).join('');
+
+  // Incident Breakdown (horizontal bars) from Incident by Type
+  const maxVal = Math.max(...p.incidentByType.map(x=>parseFloat(x.value)||0), 1);
+  document.getElementById('execIncidentBreakdown').innerHTML = p.incidentByType.map(it=>{
+    const v = parseFloat(it.value)||0;
+    const pct = v/maxVal*100;
+    return `<div class="exec-bar-row"><span class="exec-bar-label">${it.label}</span>
+      <span class="exec-bar-track"><span class="exec-bar-fill" style="width:${pct}%;"></span></span>
+      <span class="exec-bar-val">${v}</span></div>`;
+  }).join('');
+
+  // Incident Trend line (uses the same incidentTrend2024 series already tracked)
+  document.getElementById('execTrendYear').textContent = filterSelected.year;
+  drawExecTrendLine();
+
+  // Incident by Status (reuses Actions by Status data)
+  const statusItems = p.actions;
+  document.getElementById('execStatusDonut').style.background = execConic(statusItems);
+  const statusTotal = statusItems.reduce((s,x)=>s+(parseFloat(x.value)||0),0);
+  document.getElementById('execStatusTotal').textContent = statusTotal;
+  document.getElementById('execStatusLegend').innerHTML = statusItems.map(it=>
+    `<li><span class="dot" style="background:${it.color};"></span>${it.label} <b style="margin-left:auto;color:#fff;">${it.value}</b></li>`
+  ).join('');
+
+  // Training Status donut
+  const trItems = [
+    {label:'Compliant', value:p.training.completed, color:'#3fe08f'},
+    {label:'Expiring Soon', value:p.training.pending, color:'#f5b400'},
+    {label:'Expired', value:p.training.expired, color:'#e0453f'}
+  ];
+  document.getElementById('execTrainingDonut').style.background = execConic(trItems);
+  document.getElementById('execTrainingPct').textContent = trainingPct+'%';
+  document.getElementById('execTrainingLegend').innerHTML = trItems.map(it=>
+    `<li><span class="dot" style="background:${it.color};"></span>${it.label} <b style="margin-left:auto;color:#fff;">${it.value}</b></li>`
+  ).join('');
+
+  // Incidents by Department
+  drawExecDeptChart();
+}
+function drawExecTrendLine(){
+  const svg = document.getElementById('execTrendSvg');
+  if(!svg) return;
+  const p = activePeriod();
+  const series = p.incidentTrend2024;
+  const W=560,H=170, padL=22, padR=10, top=14, bottom=140;
+  const step = (W-padL-padR)/11;
+  const vals = series.map(v=>v===''||v===undefined?null:parseFloat(v));
+  const maxVal = Math.max(...vals.filter(v=>v!==null), 3);
+  let points=[], dots='', labels='';
+  vals.forEach((v,i)=>{
+    const x = padL + step*i;
+    labels += `<text x="${x-8}" y="${H-6}" font-size="8.5" fill="#93a3b8">${MONTHS[i]}</text>`;
+    if(v!==null){
+      const y = bottom - (v/maxVal)*(bottom-top);
+      points.push(`${x},${y}`);
+      dots += `<circle cx="${x}" cy="${y}" r="3" fill="#4f8ef7"/><text x="${x}" y="${y-8}" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">${v}</text>`;
+    }
+  });
+  svg.innerHTML = `
+    <line x1="${padL}" y1="${bottom}" x2="${W-padR}" y2="${bottom}" stroke="#1c3049"/>
+    <polyline fill="none" stroke="#4f8ef7" stroke-width="2" points="${points.join(' ')}"/>
+    ${dots}
+    ${labels}
+  `;
+}
+function drawExecDeptChart(){
+  const svg = document.getElementById('execDeptSvg');
+  if(!svg) return;
+  const items = computeIncidentsByDepartment();
+  if(items.length===0){ svg.innerHTML = ''; return; }
+  const W=560,H=150, padL=20, padR=10, top=20, bottom=120;
+  const step = (W-padL-padR)/items.length;
+  const barW = step*0.5;
+  const maxVal = Math.max(...items.map(x=>x.value), 1);
+  let bars='', labels='';
+  items.forEach((it,i)=>{
+    const x = padL + step*i + (step-barW)/2;
+    const h = (it.value/maxVal)*(bottom-top);
+    const y = bottom - h;
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="#4f8ef7" rx="3"/>`;
+    bars += `<text x="${x+barW/2}" y="${y-6}" font-size="10" fill="#fff" text-anchor="middle" font-weight="700">${it.value}</text>`;
+    labels += `<text x="${x+barW/2}" y="${H-4}" font-size="8.5" fill="#93a3b8" text-anchor="middle">${it.label.length>10?it.label.slice(0,9)+'…':it.label}</text>`;
+  });
+  svg.innerHTML = `<line x1="${padL}" y1="${bottom}" x2="${W-padR}" y2="${bottom}" stroke="#1c3049"/>${bars}${labels}`;
+}
+
 function renderLiveAlertCenter(){
   const el = document.getElementById('liveAlertCenter');
   if(!el) return;
@@ -1571,6 +1872,101 @@ function renderLiveAlertCenter(){
       return `<li class="alert-item ${a.level}">${a.level==='overdue'?'&#9888;':'&#8987;'} ${a.text}${agingTag}<span class="src">${a.src}</span></li>`;
     }).join('')}</ul>
   </div>`;
+}
+
+/* ---------- EXECUTIVE DASHBOARD METRICS ---------- */
+function computeDaysWithoutIncident(){
+  // Like Days Without LTI, but counts ANY logged incident (any Type), not
+  // just Lost Time Injury / Fatality — matches the general "safety streak"
+  // metric shown on executive-style dashboards.
+  const page = activePages().incidentManagement;
+  if(!page) return null;
+  const dateColIdx = page.columns.indexOf('Date');
+  if(dateColIdx===-1) return null;
+  let mostRecent = null;
+  page.rows.forEach(row=>{
+    const d = new Date(row[dateColIdx]);
+    if(!isNaN(d.getTime()) && (!mostRecent || d > mostRecent)) mostRecent = d;
+  });
+  if(!mostRecent) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  mostRecent.setHours(0,0,0,0);
+  return Math.max(0, Math.round((today - mostRecent) / 86400000));
+}
+function computeIncidentsYTD(){
+  // Sums Total Incidents across every month of the selected year (Jan
+  // through the currently selected month), for the current dept+project —
+  // a true year-to-date figure rather than just the single selected month.
+  const monthIdx = MONTHS.indexOf(filterSelected.month);
+  let total = 0;
+  for(let i=0; i<=monthIdx; i++){
+    const key = [filterSelected.year, MONTHS[i], filterSelected.department, filterSelected.project].join('|');
+    const p = data.periods[key];
+    if(p){
+      total += p.incidentByType.reduce((s,x)=>s+(parseFloat(x.value)||0),0);
+    }
+  }
+  return total;
+}
+function computeOverdueActionsCount(){
+  return computeLiveAlerts().filter(a=>a.level==='overdue').length;
+}
+function computeCriticalRisksCount(){
+  // Counts Risk Register entries scored High/Critical — either via an
+  // explicit "High"/"Critical" in the Residual Risk column, or a raw
+  // Likelihood x Severity score of 15+ (out of 25) if numeric.
+  const page = activePages().riskRegister;
+  if(!page) return 0;
+  const likeIdx = page.columns.indexOf('Likelihood');
+  const sevIdx = page.columns.indexOf('Severity');
+  const resIdx = page.columns.indexOf('Residual Risk');
+  let count = 0;
+  page.rows.forEach(row=>{
+    if(resIdx!==-1 && /high|critical/i.test(row[resIdx]||'')){ count++; return; }
+    if(likeIdx!==-1 && sevIdx!==-1){
+      const score = (parseFloat(row[likeIdx])||0) * (parseFloat(row[sevIdx])||0);
+      if(score >= 15) count++;
+    }
+  });
+  return count;
+}
+function computeSeverityRate(){
+  // Severity Rate = (Lost Time Days x 200,000) / Total Man Hours — standard
+  // OSHA-style severity measure, parallel to how TRIR/LTIFR are calculated.
+  const p = activePeriod();
+  const ltDaysItem = p.environmental.find(x=>x.label==='Lost Time Days');
+  const manHoursItem = p.environmental.find(x=>x.label==='Total Man Hours');
+  const ltDays = ltDaysItem ? (parseFloat(ltDaysItem.value)||0) : 0;
+  const manHours = manHoursItem ? (parseFloat(manHoursItem.value)||0) : 0;
+  return manHours>0 ? +((ltDays * 200000) / manHours).toFixed(2) : 0;
+}
+const TARGETS = { trir:1.00, ltifr:0.50, severityRate:20, trainingCompliance:95 };
+function computeSafetyStatus(){
+  const p = activePeriod();
+  const fatalCount = parseFloat((p.incidentByType.find(x=>x.label==='Fatality')||{}).value) || 0;
+  const trir = parseFloat((p.environmental.find(x=>x.label==='TRIR')||{}).value) || 0;
+  const ltifr = parseFloat((p.environmental.find(x=>x.label==='LTIFR')||{}).value) || 0;
+  const criticalRisks = computeCriticalRisksCount();
+  if(fatalCount > 0 || criticalRisks >= 3 || (trir > TARGETS.trir && ltifr > TARGETS.ltifr)){
+    return {level:'HIGH RISK', color:'#e0453f'};
+  }
+  if(trir > TARGETS.trir || ltifr > TARGETS.ltifr || criticalRisks > 0){
+    return {level:'MEDIUM RISK', color:'#f5b400'};
+  }
+  return {level:'LOW RISK', color:'#3fe08f'};
+}
+function computeIncidentsByDepartment(){
+  // Reads each configured department's OWN period (same year/month/project,
+  // different department) — this works because periods are already stored
+  // separately per department, so we can compare them side by side here
+  // without needing a new data structure.
+  const depts = (data.filterOptions.departments||[]).filter(d=>d!=='All');
+  return depts.map(dept=>{
+    const key = [filterSelected.year, filterSelected.month, dept, filterSelected.project].join('|');
+    const p = data.periods[key];
+    const count = p ? p.incidentByType.reduce((s,x)=>s+(parseFloat(x.value)||0),0) : 0;
+    return {label:dept, value:count};
+  });
 }
 
 /* ---------- LEADING INDICATORS & DAYS WITHOUT LTI ---------- */
@@ -1676,7 +2072,8 @@ function sampleData(){
     text: {
       title: 'COMPLETE <span class="accent">HSE</span> DASHBOARD',
       tagline: 'HEALTH. SAFETY. ENVIRONMENT. EXCELLENCE.',
-      hint: 'editable version, type your own numbers below',
+      hint: 'DAR International Engineering for Consultancy',
+      execTitle: 'WORKPLACE SAFETY',
       brandName: 'HSE&nbsp;&nbsp;MANAGEMENT SYSTEM',
       userName: 'HSE Manager',
       userRole: 'Safety First, Always',
@@ -2287,6 +2684,10 @@ function syncComputedKpis(){
       // not the sum of every status — matches the original dashboard's meaning.
       const openItem = activePeriod().actions.find(x=>x.label==='Open') || activePeriod().actions[0];
       k.value = openItem ? (parseFloat(openItem.value)||0) : 0;
+    }else if(k.computed==='trainingCompliance'){
+      const t = activePeriod().training;
+      const total = (parseFloat(t.completed)||0) + (parseFloat(t.pending)||0) + (parseFloat(t.expired)||0);
+      k.value = total>0 ? Math.round((parseFloat(t.completed)||0)/total*100) : 0;
     }
   });
 }
@@ -2300,7 +2701,7 @@ function renderKpis(){
     const isCriticalActive = k.critical && (parseFloat(k.value)||0) > 0;
     card.className = 'kpi-card' + (isCriticalActive ? ' kpi-critical' : '');
     const isComputed = !!k.computed;
-    const computedSource = k.computed==='fatalities' ? 'Incident by Type (Fatality)' : k.computed==='incidentByType' ? 'Incident by Type' : 'Actions by Status';
+    const computedSource = k.computed==='fatalities' ? 'Incident by Type (Fatality)' : k.computed==='incidentByType' ? 'Incident by Type' : k.computed==='trainingCompliance' ? 'Training Completion donut' : 'Actions by Status';
     const computedTitle = isComputed ? `title="Auto-calculated from ${computedSource} below \u2014 edit the values there instead"` : '';
     card.innerHTML = `
       <div class="kpi-top">
@@ -2330,6 +2731,7 @@ function renderKpis(){
     el.addEventListener('change', kpiFieldChanged);
   });
   applyEditMode();
+  renderExecDashboard();
 }
 function kpiFieldChanged(e){
   const i = +e.target.dataset.i, f = e.target.dataset.f;
@@ -2339,6 +2741,7 @@ function kpiFieldChanged(e){
   row.className = 'kpi-delta-row ' + (activePeriod().kpis[i].dir==='up' ? 'up-color':'down-color');
   save();
   renderValidationWarnings();
+  renderExecDashboard();
 }
 
 /* ---------- LINE/BAR TREND CHARTS ---------- */
@@ -2476,6 +2879,7 @@ function renderIncidentTrend(){
   drawDualLine('incidentTrendSvg', activePeriod().incidentTrend2023, activePeriod().incidentTrend2024, '#1f4fd8', '#1b8a2f', 30, false);
   buildMonthGrid('grid_incident2023', activePeriod().incidentTrend2023, renderIncidentTrend);
   buildMonthGrid('grid_incident2024', activePeriod().incidentTrend2024, renderIncidentTrend);
+  drawExecTrendLine();
 }
 function renderInspectionTrend(){
   drawDualLine('inspectionTrendSvg', activePeriod().scoreVal, activePeriod().scoreTarget, '#1b8a2f', '#1e293b', 100, true);
@@ -2511,19 +2915,22 @@ function renderDonutsAndBars(){
   renderMultiDonut('donut_incidentType','legend_incidentType','total_incidentType', activePeriod().incidentByType, 'count');
 
   const trItems = [
-    {label:'Completed', value:activePeriod().training.completed, color:'#1b8a2f'},
-    {label:'Pending', value:activePeriod().training.pending, color:'#c9ccd1'}
+    {label:'Compliant', value:activePeriod().training.completed, color:'#1b8a2f'},
+    {label:'Expiring Soon', value:activePeriod().training.pending, color:'#f5b400'},
+    {label:'Expired', value:activePeriod().training.expired, color:'#e02424'}
   ];
   document.getElementById('donut_training').style.background = conic(trItems);
-  const trTotal = (parseFloat(activePeriod().training.completed)||0)+(parseFloat(activePeriod().training.pending)||0) || 1;
+  const trTotal = (parseFloat(activePeriod().training.completed)||0)+(parseFloat(activePeriod().training.pending)||0)+(parseFloat(activePeriod().training.expired)||0) || 1;
   document.getElementById('pct_training').textContent = Math.round(activePeriod().training.completed/trTotal*100)+'%';
   const trLegend = document.getElementById('legend_training');
   trLegend.innerHTML = '';
-  ['completed','pending'].forEach((key,idx)=>{
+  const trLabels = {completed:'Compliant', pending:'Expiring Soon', expired:'Expired'};
+  const trColors = {completed:'#1b8a2f', pending:'#f5b400', expired:'#e02424'};
+  ['completed','pending','expired'].forEach((key)=>{
     const li = document.createElement('li');
-    const color = key==='completed'?'#1b8a2f':'#c9ccd1';
-    const pct = Math.round(activePeriod().training[key]/trTotal*100);
-    li.innerHTML = `<span class="name"><span class="dot" style="background:${color};"></span>${key.charAt(0).toUpperCase()+key.slice(1)}</span>
+    const color = trColors[key];
+    const pct = Math.round((parseFloat(activePeriod().training[key])||0)/trTotal*100);
+    li.innerHTML = `<span class="name"><span class="dot" style="background:${color};"></span>${trLabels[key]}</span>
       <input type="number" value="${activePeriod().training[key]}" data-key="${key}"><span class="pct">${pct}%</span>`;
     trLegend.appendChild(li);
     li.querySelector('input').addEventListener('input', e=>{
@@ -2662,6 +3069,7 @@ function renderEnv(){
       save();
       renderValidationWarnings();
       if(f==='value'){ syncComputedEnvironmental(); renderEnv(); } // Total Man Hours affects TRIR/LTIFR/LTIIR
+      renderExecDashboard();
     });
   });
   applyEditMode();
@@ -2796,7 +3204,8 @@ const SIMPLE_TEXT_PAIRS = [
   ['lbl_incident2024','lbl_incident2024'],
   ['editLbl_score','editLbl_score'],
   ['lbl_scoreVal','lbl_scoreVal'],
-  ['lbl_scoreTarget','lbl_scoreTarget']
+  ['lbl_scoreTarget','lbl_scoreTarget'],
+  ['execTitleText','execTitle']
 ];
 
 function loadTextIntoDOM(){
@@ -2869,6 +3278,7 @@ function showPage(key){
 
   if(key==='dashboard'){
     dash.style.display='';
+    renderExecDashboard();
     renderLeadingIndicators();
     renderLiveAlertCenter();
   }else if(key==='jsonEditor'){
@@ -3097,6 +3507,7 @@ function renderAll(){
   renderRiskMatrix();
   renderEnv();
   renderFilters();
+  renderExecDashboard();
   renderLeadingIndicators();
   renderLiveAlertCenter();
   applyEditMode();
