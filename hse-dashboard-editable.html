@@ -485,7 +485,7 @@
       <label>Description</label>
       <textarea id="qrDesc" rows="4" placeholder="Briefly describe what you saw..."></textarea>
       <label>Location (optional)</label>
-      <input type="text" id="qrLoc" placeholder="e.g. Plant Area 1, Warehouse...">
+      <input type="text" id="qrLoc" placeholder="e.g. Office, Erection, Workshop...">
       <label class="qr-check"><input type="checkbox" id="qrAnon" checked> Submit anonymously</label>
       <button onclick="submitQrReport()">Submit Report</button>
       <div id="qrSubmitError" style="color:#e02424;font-size:12px;margin-top:8px;display:none;"></div>
@@ -513,7 +513,7 @@
     <div class="sidebar-footer">
       <div class="avatar" id="avatarLetter">H</div>
       <div>
-        <div class="name" id="userName" contenteditable="true" spellcheck="false">Ali Danial</div>
+        <div class="name" id="userName" contenteditable="true" spellcheck="false">HSE Manager</div>
         <div class="role" id="userRole" contenteditable="true" spellcheck="false">Safety First, Always</div>
       </div>
     </div>
@@ -630,13 +630,13 @@
         <h3>INCIDENT TREND</h3>
         <svg id="incidentTrendSvg" viewBox="0 0 320 150" width="100%" height="140"></svg>
         <div style="font-size:10px;color:var(--sub);display:flex;gap:12px;">
-          <span style="color:#1f4fd8;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2026">2026</span></span><span style="color:#1b8a2f;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2024">2024</span></span>
+          <span style="color:#1f4fd8;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2023">2023</span></span><span style="color:#1b8a2f;">&#9679; <span contenteditable="true" spellcheck="false" id="legend_incident2024">2024</span></span>
         </div>
         <details class="editor"><summary contenteditable="true" spellcheck="false" id="editLbl_incident">Edit monthly values</summary>
-          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2023">2026</div>
-          <div class="month-grid" id="grid_incident2026"></div>
-          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2026">2026 (leave blank for months not yet reported)</div>
-          <div class="month-grid" id="grid_incident2026"></div>
+          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2023">2023</div>
+          <div class="month-grid" id="grid_incident2023"></div>
+          <div class="series-label" contenteditable="true" spellcheck="false" id="lbl_incident2024">2024 (leave blank for months not yet reported)</div>
+          <div class="month-grid" id="grid_incident2024"></div>
         </details>
       </div>
 
@@ -1436,7 +1436,7 @@ function blankPeriod(){
       {label:'Fatality', value:0, color:'#111111'},
       {label:'Medical Treatment', value:0, color:'#1f4fd8'},
       {label:'First Aid', value:0, color:'#1b8a2f'},
-      {label:'Secruity', value:0, color:'#f2711c'},
+      {label:'Security', value:0, color:'#f2711c'},
       {label:'Lost Time Injury', value:0, color:'#e02424'},
       {label:'Property Damage', value:0, color:'#6f2bd6'}
     ],
@@ -1444,7 +1444,7 @@ function blankPeriod(){
       {label:'Office', value:0},
       {label:'Erection', value:0},
       {label:'Construction Site', value:0},
-      {label:'Laydown', value:0},
+      {label:'Laydown Area', value:0},
       {label:'Workshop', value:0}
     ],
     scoreVal: [0,0,0,0,0,0,0,0,0,0,0,0],
@@ -1512,7 +1512,7 @@ function defaultSeededPeriod(){
   p.compliance = {compliant:50, nonCompliant:1};
   return p;
 }
-const DEFAULT_FILTER_SELECTED = { year:'2024', month:'May', department:'All', project:'Admin Building Complex' };
+const DEFAULT_FILTER_SELECTED = { year:'2026', month:'May', department:'All', project:'Admin Building Complex' };
 function periodKey(sel){
   sel = sel || DEFAULT_FILTER_SELECTED;
   return [sel.year, sel.month, sel.department, sel.project||'Admin Building Complex'].join('|');
@@ -2065,7 +2065,7 @@ function sampleData(){
       [periodKey(DEFAULT_FILTER_SELECTED)]: defaultSeededPeriod()
     },
     filterOptions: {
-      years: ['2023','2024','2025','2026'],
+      years: ['2026'],
       departments: ['All','Operations','Maintenance','Warehouse','Construction'],
       projects: ['Admin Building Complex','Multistorey Parking Project']
     },
@@ -2078,13 +2078,13 @@ function sampleData(){
       userName: 'HSE Manager',
       userRole: 'Safety First, Always',
       footer: 'Safety Today. Excellence Every Day.',
-      legend_incident2023: '2023',
-      legend_incident2024: '2024',
+      legend_incident2023: '2025',
+      legend_incident2024: '2026',
       legend_scoreVal: 'Score (%)',
       legend_scoreTarget: 'Target (%)',
       editLbl_incident: 'Edit monthly values',
-      lbl_incident2023: '2023',
-      lbl_incident2024: '2024 (leave blank for months not yet reported)',
+      lbl_incident2023: '2025',
+      lbl_incident2024: '2026 (leave blank for months not yet reported)',
       editLbl_score: 'Edit monthly values',
       lbl_scoreVal: 'Score (%)',
       lbl_scoreTarget: 'Target (%)',
@@ -2123,83 +2123,83 @@ function sampleData(){
       incidentManagement: {
         columns:['Date','Location','Type','Severity','Immediate Cause','Root Cause','Corrective Action','Preventive Action','Verified Effective','Status'],
         rows:[
-          ['2024-05-02','Plant Area 1','Medical Treatment','High','Worker not wearing cut-resistant gloves','Glove policy not enforced at task level','Re-briefed crew, gloves mandatory for this task','Add task to PPE matrix; toolbox talk scheduled','Yes','Closed'],
-          ['2024-05-08','Warehouse','First Aid','Low','Slipped on wet floor','Spill not cleaned promptly / no wet-floor sign','Floor cleaned, signage placed','Add spill-response step to housekeeping checklist','Yes','Closed'],
-          ['2024-05-14','Construction Site','Lost Time Injury','High','Fall from unguarded edge','Edge protection not installed before work started','Area barricaded, work stopped pending edge protection','Update permit checklist to verify edge protection before work-start sign-off','Pending','Open']
+          ['2026-05-02','Office','Medical Treatment','High','Worker not wearing cut-resistant gloves','Glove policy not enforced at task level','Re-briefed crew, gloves mandatory for this task','Add task to PPE matrix; toolbox talk scheduled','Yes','Closed'],
+          ['2026-05-08','Warehouse','First Aid','Low','Slipped on wet floor','Spill not cleaned promptly / no wet-floor sign','Floor cleaned, signage placed','Add spill-response step to housekeeping checklist','Yes','Closed'],
+          ['2026-05-14','Construction Site','Lost Time Injury','High','Fall from unguarded edge','Edge protection not installed before work started','Area barricaded, work stopped pending edge protection','Update permit checklist to verify edge protection before work-start sign-off','Pending','Open']
         ]
       },
       nearMiss: {
         columns:['Date','Location','Description','Reported By','Status'],
         rows:[
-          ['2024-05-03','Workshop','Slippery floor near entrance','A. Rahman','Closed'],
-          ['2024-05-11','Office','Loose cable across walkway','S. Ibrahim','Open']
+          ['2026-05-03','Workshop','Slippery floor near entrance','A. Rahman','Closed'],
+          ['2026-05-11','Office','Loose cable across walkway','S. Ibrahim','Open']
         ]
       },
       observations: {
         columns:['Date','Observer','Area','Category','Status'],
         rows:[
-          ['2024-05-05','J. Al-Otaibi','Plant Area 1','Unsafe Act','Closed'],
-          ['2024-05-10','M. Faisal','Warehouse','Unsafe Condition','Open']
+          ['2026-05-05','J. Al-Otaibi','Office','Unsafe Act','Closed'],
+          ['2026-05-10','M. Faisal','Warehouse','Unsafe Condition','Open']
         ]
       },
       inspections: {
         columns:['Date','Area','Inspector','Score (%)','Status'],
         rows:[
-          ['2024-05-01','Plant Area 1','H. Al-Qahtani','96','Completed'],
-          ['2024-05-15','Warehouse','H. Al-Qahtani','98','Completed']
+          ['2026-05-01','Office','H. Al-Qahtani','96','Completed'],
+          ['2026-05-15','Warehouse','H. Al-Qahtani','98','Completed']
         ]
       },
       ncrManagement: {
         columns:['NCR No','Date','Category','Observation','Responsible','Due Date','Status'],
         rows:[
-          ['NCR-001','2024-05-07','Quality','Rebar spacing non-conforming to drawing','Site Engineer','2024-05-21','Open'],
-          ['NCR-002','2024-05-12','Safety','Missing edge protection at Level 3','HSE Officer','2024-05-19','Closed']
+          ['NCR-001','2026-05-07','Quality','Rebar spacing non-conforming to drawing','Site Engineer','2026-05-21','Open'],
+          ['NCR-002','2026-05-12','Safety','Missing edge protection at Level 3','HSE Officer','2026-05-19','Closed']
         ]
       },
       scirTracker: {
         columns:['SCIR No','Severity','Observation','Action Required','Responsible','Due Date','Status'],
         rows:[
-          ['SCIR-001','Major','Unauthorized hot work permit','Retrain & re-issue PTW procedure','HSE Manager','2024-05-25','Open'],
-          ['SCIR-002','Minor','Housekeeping issue at laydown area','Toolbox talk + area cleanup','Site Supervisor','2024-05-18','Closed']
+          ['SCIR-001','Major','Unauthorized hot work permit','Retrain & re-issue PTW procedure','HSE Manager','2026-05-25','Open'],
+          ['SCIR-002','Minor','Housekeeping issue at laydown area','Toolbox talk + area cleanup','Site Supervisor','2026-05-18','Closed']
         ]
       },
       correctiveActionTracker: {
         columns:['Action No','Description','Priority','Owner','Due Date','Completion %','Status'],
         rows:[
-          ['CAPA-001','Install additional lighting in Warehouse B','High','Facilities','2024-06-05','40','In Progress'],
-          ['CAPA-002','Update confined space entry procedure','Medium','HSE Officer','2024-06-10','0','Open'],
-          ['CAPA-003','Repair warehouse lighting','Medium','Facilities','2024-06-05','60','In Progress']
+          ['CAPA-001','Install additional lighting in Warehouse B','High','Facilities','2026-06-05','40','In Progress'],
+          ['CAPA-002','Update confined space entry procedure','Medium','HSE Officer','2026-06-10','0','Open'],
+          ['CAPA-003','Repair warehouse lighting','Medium','Facilities','2026-06-05','60','In Progress']
         ]
       },
       trainingManagement: {
         columns:['Employee','Trade','Course / Competency','Date','Status'],
         rows:[
-          ['A. Salem','Rigger','Fire Safety','2024-05-04','Completed'],
-          ['B. Naser','Scaffolder','First Aid Refresher','2024-05-12','Completed'],
-          ['C. Yusuf','Electrician','Working at Heights','2024-05-20','Pending'],
-          ['A. Salem','Rigger','Rigging Level 2','2024-04-10','Completed'],
-          ['B. Naser','Scaffolder','Scaffold Inspection','2024-03-22','Completed']
+          ['A. Salem','Rigger','Fire Safety','2026-05-04','Completed'],
+          ['B. Naser','Scaffolder','First Aid Refresher','2026-05-12','Completed'],
+          ['C. Yusuf','Electrician','Working at Heights','2026-05-20','Pending'],
+          ['A. Salem','Rigger','Rigging Level 2','2026-04-10','Completed'],
+          ['B. Naser','Scaffolder','Scaffold Inspection','2026-03-22','Completed']
         ]
       },
       documentManagement: {
         columns:['Document','Category','Expiry Date','Status'],
         rows:[
-          ['Fire Extinguisher Certificate','Equipment','2024-09-01','Valid'],
-          ['Crane Operator License — J. Reyes','Certification','2024-06-05','Expiring Soon'],
+          ['Fire Extinguisher Certificate','Equipment','2026-09-01','Valid'],
+          ['Crane Operator License — J. Reyes','Certification','2026-06-05','Expiring Soon'],
           ['Emergency Response Plan','Procedure','2025-01-01','Valid']
         ]
       },
       heatStressManagement: {
         columns:['Date','Time','Heat Index','Temperature (°C)','Humidity (%)','Work Status'],
         rows:[
-          ['2024-05-14','14:00','High','38','45','Restricted — Frequent Breaks'],
-          ['2024-05-15','13:00','Moderate','34','40','Normal']
+          ['2026-05-14','14:00','High','38','45','Restricted — Frequent Breaks'],
+          ['2026-05-15','13:00','Moderate','34','40','Normal']
         ]
       },
       qrReporting: {
         columns:['Date','Type','Description','Location','Anonymous','Status'],
         rows:[
-          ['2024-05-09','Unsafe Condition','Exposed wiring near site office','Site Office','Yes','Closed']
+          ['2026-05-09','Unsafe Condition','Exposed wiring near site office','Site Office','Yes','Closed']
         ]
       },
       contractorScorecard: {
@@ -2212,37 +2212,37 @@ function sampleData(){
       riskRegister: {
         columns:['Risk','Category','Likelihood','Severity','Residual Risk','Responsible','Due Date','Status'],
         rows:[
-          ['Fall from height','Safety','3','4','Medium','Site Manager','2024-06-30','Open'],
-          ['Chemical spill','Environmental','2','4','Medium','HSE Officer','2024-06-15','Open']
+          ['Fall from height','Safety','3','4','Medium','Site Manager','2026-06-30','Open'],
+          ['Chemical spill','Environmental','2','4','Medium','HSE Officer','2026-06-15','Open']
         ]
       },
       toolboxTalks: {
         columns:['Date','Topic','Presenter','Attendees'],
         rows:[
-          ['2024-05-06','Heat Stress Awareness','Site Supervisor','24'],
-          ['2024-05-13','PPE Compliance','Site Supervisor','19']
+          ['2026-05-06','Heat Stress Awareness','Site Supervisor','24'],
+          ['2026-05-13','PPE Compliance','Site Supervisor','19']
         ]
       },
       auditCompliance: {
         columns:['Audit Type','Date','Auditor','Score (%)','Key Findings','Status'],
         rows:[
-          ['Internal HSE Audit','2024-05-09','External Auditor Co.','94','Minor housekeeping issues in Warehouse B','Completed'],
-          ['ISO 45001 Surveillance','2024-05-22','Cert Body','—','—','Scheduled'],
-          ['Client Audit','2024-06-01','Client HSE Rep','—','—','Scheduled']
+          ['Internal HSE Audit','2026-05-09','External Auditor Co.','94','Minor housekeeping issues in Warehouse B','Completed'],
+          ['ISO 45001 Surveillance','2026-05-22','Cert Body','—','—','Scheduled'],
+          ['Client Audit','2026-06-01','Client HSE Rep','—','—','Scheduled']
         ]
       },
       environmental: {
         columns:['Metric','Value','Unit','Date'],
         rows:[
-          ['Waste Generated','12450','kg','2024-05-31'],
-          ['Recycled Rate','78','%','2024-05-31']
+          ['Waste Generated','12450','kg','2026-05-31'],
+          ['Recycled Rate','78','%','2026-05-31']
         ]
       },
       objectivesTargets: {
         columns:['Objective / KPI','Target','Current','Due Date','Status'],
         rows:[
-          ['Reduce LTI Rate','0 incidents','2 incidents','2024-12-31','At Risk'],
-          ['100% Training Compliance','100%','92%','2024-09-30','On Track'],
+          ['Reduce LTI Rate','0 incidents','2 incidents','2026-12-31','At Risk'],
+          ['100% Training Compliance','100%','92%','2026-09-30','On Track'],
           ['Inspection Score','95%','98%','—','On Track'],
           ['Training Completion','95%','92%','—','At Risk']
         ]
@@ -2250,8 +2250,8 @@ function sampleData(){
       reports: {
         columns:['Report Name','Period','Generated By','Date'],
         rows:[
-          ['Monthly HSE Report','May 2024','HSE Manager','2024-06-01'],
-          ['Quarterly Compliance Report','Q2 2024','HSE Manager','2024-07-01']
+          ['Monthly HSE Report','May 2024','HSE Manager','2026-06-01'],
+          ['Quarterly Compliance Report','Q2 2024','HSE Manager','2026-07-01']
         ]
       },
       emergencyResponse: {
@@ -3019,7 +3019,7 @@ function syncComputedEnvironmental(){
   // Fatalities are the most severe recordable/lost-time event and are
   // included in both counts per standard OSHA/ISO 45001 convention —
   // they must never be silently dropped from the rate calculations.
-  const recordableLabels = ['Fatality','Medical Treatment','Restricted Work','Lost Time Injury'];
+  const recordableLabels = ['Fatality','Medical Treatment','Security','Lost Time Injury'];
   const recordableCases = p.incidentByType
     .filter(x=>recordableLabels.includes(x.label))
     .reduce((s,x)=>s+(parseFloat(x.value)||0),0);
