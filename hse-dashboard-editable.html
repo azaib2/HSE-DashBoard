@@ -1640,7 +1640,6 @@ function computeLiveAlerts(){
     {key:'trainingManagement', label:'Training Matrix'},
     {key:'documentManagement', label:'Document Expiry'},
     {key:'correctiveActionTracker', label:'Corrective Action'},
-    {key:'inspections', label:'Inspection'},
     {key:'ncrManagement', label:'NCR'},
     {key:'scirTracker', label:'SCIR'},
     {key:'auditCompliance', label:'Audit & Compliance'}
@@ -2135,20 +2134,6 @@ function sampleData(){
           ['2026-05-11','Office','Loose cable across walkway','S. Ibrahim','Open']
         ]
       },
-      observations: {
-        columns:['Date','Observer','Area','Category','Status'],
-        rows:[
-          ['2026-05-05','J. Al-Otaibi','Office','Unsafe Act','Closed'],
-          ['2026-05-10','M. Faisal','Warehouse','Unsafe Condition','Open']
-        ]
-      },
-      inspections: {
-        columns:['Date','Area','Inspector','Score (%)','Status'],
-        rows:[
-          ['2026-05-01','Office','H. Al-Qahtani','96','Completed'],
-          ['2026-05-15','Warehouse','H. Al-Qahtani','98','Completed']
-        ]
-      },
       ncrManagement: {
         columns:['NCR No','Date','Category','Observation','Responsible','Due Date','Status'],
         rows:[
@@ -2189,13 +2174,6 @@ function sampleData(){
           ['Emergency Response Plan','Procedure','2025-01-01','Valid']
         ]
       },
-      heatStressManagement: {
-        columns:['Date','Time','Heat Index','Temperature (°C)','Humidity (%)','Work Status'],
-        rows:[
-          ['2026-05-14','14:00','High','38','45','Restricted — Frequent Breaks'],
-          ['2026-05-15','13:00','Moderate','34','40','Normal']
-        ]
-      },
       qrReporting: {
         columns:['Date','Type','Description','Location','Anonymous','Status'],
         rows:[
@@ -2207,13 +2185,6 @@ function sampleData(){
         rows:[
           ['Contractor Co. A','96','92','1','2','A'],
           ['Contractor Co. B','84','78','4','5','C']
-        ]
-      },
-      riskRegister: {
-        columns:['Risk','Category','Likelihood','Severity','Residual Risk','Responsible','Due Date','Status'],
-        rows:[
-          ['Fall from height','Safety','3','4','Medium','Site Manager','2026-06-30','Open'],
-          ['Chemical spill','Environmental','2','4','Medium','HSE Officer','2026-06-15','Open']
         ]
       },
       toolboxTalks: {
@@ -2229,13 +2200,6 @@ function sampleData(){
           ['Internal HSE Audit','2026-05-09','External Auditor Co.','94','Minor housekeeping issues in Warehouse B','Completed'],
           ['ISO 45001 Surveillance','2026-05-22','Cert Body','—','—','Scheduled'],
           ['Client Audit','2026-06-01','Client HSE Rep','—','—','Scheduled']
-        ]
-      },
-      environmental: {
-        columns:['Metric','Value','Unit','Date'],
-        rows:[
-          ['Waste Generated','12450','kg','2026-05-31'],
-          ['Recycled Rate','78','%','2026-05-31']
         ]
       },
       objectivesTargets: {
@@ -2319,15 +2283,15 @@ function freshData(){
 
 const PAGE_TITLES = {
   projectOverview:'Project Overview',
-  incidentManagement:'Incident Management', nearMiss:'Near Miss', observations:'Safety Observation',
-  inspections:'Inspection Management', ncrManagement:'NCR Management', scirTracker:'SCIR Tracker',
+  incidentManagement:'Incident Management', nearMiss:'Near Miss',
+  ncrManagement:'NCR Management', scirTracker:'SCIR Tracker',
   correctiveActionTracker:'Corrective Action Tracker',
   trainingManagement:'Training Matrix', documentManagement:'Document Expiry',
-  heatStressManagement:'Heat Stress Management', qrReporting:'QR Reporting',
-  contractorScorecard:'Contractor Scorecard', riskRegister:'Risk Register',
+  qrReporting:'QR Reporting',
+  contractorScorecard:'Contractor Scorecard',
   emergencyResponse:'Emergency Response',
   toolboxTalks:'Toolbox Talks', auditCompliance:'Audit & Compliance',
-  environmental:'Environmental', objectivesTargets:'Objectives & KPIs',
+  objectivesTargets:'Objectives & KPIs',
   reports:'Reports', administration:'Administration',
   settings:'Settings', help:'Help'
 };
@@ -3129,14 +3093,14 @@ function wireFilters(){
 const TAB_KEYS = ['dashboard', 'projectOverview', ...Object.keys(PAGE_TITLES).filter(k=>k!=='projectOverview'), 'analytics', 'auditLog', 'versionHistory', 'jsonEditor'];
 const TAB_ICONS = {
   dashboard:'&#8962;', projectOverview:'&#127959;',
-  incidentManagement:'&#9888;', nearMiss:'&#128269;', observations:'&#128203;',
-  inspections:'&#9989;', ncrManagement:'&#128683;', scirTracker:'&#128226;',
+  incidentManagement:'&#9888;', nearMiss:'&#128269;',
+  ncrManagement:'&#128683;', scirTracker:'&#128226;',
   correctiveActionTracker:'&#128295;', trainingManagement:'&#127891;',
-  documentManagement:'&#128193;', heatStressManagement:'&#127777;', qrReporting:'&#128241;',
-  contractorScorecard:'&#127942;', riskRegister:'&#9888;',
+  documentManagement:'&#128193;', qrReporting:'&#128241;',
+  contractorScorecard:'&#127942;',
   emergencyResponse:'&#128680;',
   toolboxTalks:'&#128172;', auditCompliance:'&#128737;',
-  environmental:'&#127811;', objectivesTargets:'&#127919;',
+  objectivesTargets:'&#127919;',
   reports:'&#128196;', analytics:'&#128200;', administration:'&#128100;',
   auditLog:'&#128220;', versionHistory:'&#128337;',
   settings:'&#9881;', help:'&#10067;', jsonEditor:'&#128221;'
